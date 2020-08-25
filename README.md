@@ -2,29 +2,33 @@
 This repository contains the kyber reserve smart contracts.
 For more details, please visit the reserves section of our [developer portal](https://developer.kyber.network/docs/Reserves-Intro/)
 
+## Package Manager
+We use `yarn` as the package manager. You may use `npm` and `npx` instead, but commands in bash scripts may have to be changed accordingly.
+
 ## Setup
 1. Clone this repo
-2. `npm ci`
+2. `yarn`
 
 ## Compilation with Buidler
-1. `./cmp.sh` to compile contracts for all solidity versions.
-2. `./cmpSol6.sh` to compile only sol6 contracts
+1. `yarn compile` to compile contracts for all solidity versions.
+2. `yarn compileSol6` to compile only sol6 contracts
 
 ## Testing with Buidler
-1. If contracts have not been compiled, run `./cmp.sh`. This step can be skipped subsequently.
-2. Run `./tst.sh`
-3. Use `-f` for running a specific test file.
+1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
+2. Run `yarn test`
+3. Use `./tst.sh -f` for running a specific test file.
 
 ### Example Commands
-- `./tst.sh` (Run only sol6 tests)
+- `yarn test` (Runs all tests)
 - `./tst.sh -f ./test/sol4/kyberReserve.js` (Test only kyberReserve.js)
 
 ### Example
-`npx buidler test --no-compile ./test/sol6/sanityRatesGasPrice.js`
+`yarn buidler test --no-compile ./test/sol6/sanityRatesGasPrice.js`
 
 ## Coverage with `buidler-coverage`
-1. Run `./coverage.sh`
-2. Use `-f` for running a specific test file.
+1. Run `yarn coverage`
+2. Use `./coverage.sh -f` for running a specific test file.
 
 ### Example Commands
+- `yarn coverage` (Runs coverage for all applicable files)
 `./coverage.sh -f ./test/sol6/sanityRatesGasPrice.js` (Coverage for only sanityRatesGasPrice.js)

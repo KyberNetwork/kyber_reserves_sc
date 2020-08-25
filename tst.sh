@@ -8,8 +8,8 @@ while getopts "f:" arg; do
 done
 
 if [ -n "$FILE" ]; then
-  npx buidler test --no-compile $FILE
+  yarn buidler test --no-compile $FILE
 else
   echo "Running all tests..."
-  npx buidler test --no-compile
+  yarn buidler test --no-compile
 fi

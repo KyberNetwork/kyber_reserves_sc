@@ -1,3 +1,3 @@
 #!/bin/sh
-npx buidler compile &&
+yarn buidler compile &&
 node contractSizeReport.js
