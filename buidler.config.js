@@ -15,10 +15,6 @@ module.exports = {
       gas: 6000000,
       timeout: 20000
     },
-    develop2: {
-      url: "http://127.0.0.1:8545",
-      accounts: [process.env.PRIVATE_KEY]
-    },
     buidlerevm: {
       accounts: [
         // 20 accounts with 10^14 ETH each 
@@ -144,26 +140,6 @@ module.exports = {
           balance: "100000000000000000000000000000000"
         }
       ]
-    },
-    kovan: {
-      url: `https://kovan.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.PRIVATE_KEY],
-      timeout: 20000
-    },
-    rinkeby: {
-      url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.PRIVATE_KEY],
-      timeout: 20000
-    },
-    ropsten: {
-      url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.PRIVATE_KEY],
-      timeout: 20000
-    },
-    mainnet: {
-      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.PRIVATE_KEY],
-      timeout: 20000
     }
   },
 
@@ -181,3 +157,32 @@ module.exports = {
     enableTimeouts: false
   }
 };
+
+const INFURA_API_KEY = process.env.INFURA_API_KEY;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+if (INFURA_API_KEY != undefined && PRIVATE_KEY != undefined) {
+  module.exports.networks.kovan = {
+    url: `https://kovan.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000
+  };
+
+  module.exports.networks.rinkeby = {
+    url: `https://rinkeby.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000
+  };
+
+  module.exports.networks.ropsten = {
+    url: `https://ropsten.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000
+  };
+
+  module.exports.networks.mainnet = {
+    url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000
+  };
+}

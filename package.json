@@ -10,7 +10,7 @@
     "test": "./tst.sh",
     "t": "./tst.sh",
     "compile": "./cmp.sh",
-    "compileSol6": "./cmpSol6.sh",
+    "c6": "./cmpSol6.sh",
     "c": "./cmp.sh",
     "coverage": "./coverage.sh",
     "lint": "npx solhint 'contracts/sol6/**/*.sol'"
