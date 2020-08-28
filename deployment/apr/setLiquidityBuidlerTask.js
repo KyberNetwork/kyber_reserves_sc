@@ -27,8 +27,8 @@ let feePercent;
 const formulaPrecision = 40;
 
 task("setLiquidityParams", "(re-)sets the liquidity settings of an APR")
-  .addOptionalParam("r", "reserve address", "0x0")
-  .addOptionalParam("a", "automatically fetch price via CoinGecko. Default: true", true, types.boolean)
+  .addOptionalParam("r", "reserve address", "read from liquidity_settings.json")
+  .addOptionalParam("a", "automatically fetch price via CoinGecko.", true, types.boolean)
   .setAction(async({r, a}) => {
     networkName = await ethers.provider.getNetwork();
     if (networkName.id == 1) {
@@ -37,19 +37,36 @@ task("setLiquidityParams", "(re-)sets the liquidity settings of an APR")
       networkName = networkName.name + '.';
     }
 
-    reserveAddress = (r != "0x0") ?
-      r :
-      configParams["reserve"];
+    reserveAddress = (r == "read from liquidity_settings.json") ?
+      configParams["reserve"] :
+      r;
 
+    const [userAccount] = await ethers.getSigners();
     await instantiateContracts();
     if (a) {
       await fetchTokenPrice();
     }
     parseInput(configParams);
     console.log("Reading reserve balances...");
-    await fetchParams();
-    printParams();
-    validateParams();
+    await fetchBalances();
+    let liqParams = calcParams();
+    let warnings = validateParams();
+    if ((await userAccount.getAddress() == pricingAdmin) && warnings.length == 0) {
+      console.log("Setting price...");
+      await pricing.setLiquidittyParams(
+        liqParams['rInFp'],
+        liqParams['pMinInFp'],
+        liqParams['numFpBits'],
+        liqParams['maxCapBuyInWei'],
+        liqParams['maxCapSellInWei'],
+        liqParams['feeInBps'],
+        liqParams['maxTokenToEthRateInPrecision'],
+        liqParams['minTokenToEthRateInPrecision']
+      );
+      printParams(liqParams, false, warnings);
+    } else {
+      printParams(liqParams, true, warnings);
+    }
 });
 
 async function instantiateContracts() {
@@ -65,8 +82,14 @@ async function fetchTokenPrice() {
     `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${tokenAddress}&vs_currencies=eth`
     );
   let result = Object.values(await priceRequest.json());
-  tokenPriceInEth = result[0].eth;
-  console.log(`token price via CoinGecko API: ${tokenPriceInEth}`);
+  if (!result.length) {
+    console.log(`Unable to get price via CoinGecko, using price in liquidity_settings.json`);
+    tokenPriceInEth = configParams["tokenPriceInEth"];
+    console.log(`token price: ${tokenPriceInEth}`);
+  } else {
+    tokenPriceInEth = result[0].eth;
+    console.log(`token price via CoinGecko API: ${tokenPriceInEth}`);
+  }
 }
 
 function parseInput(jsonInput) {
@@ -95,7 +118,7 @@ function parseInput(jsonInput) {
     0.05;
 };
 
-async function fetchParams() {
+async function fetchBalances() {
   let token = await ethers.getContractAt("IERC20", tokenAddress);
   let tokenDecimals = await token.decimals();
 
@@ -109,7 +132,24 @@ async function fetchParams() {
   }
 }
 
+function calcParams() {
+  let result = {};
+  const maxSupportPrice = maxAllowablePrice * tokenPriceInEth;
+  const minSupportPrice = minAllowablePrice * tokenPriceInEth;
+
+  result['rInFp'] = Math.floor(liqRate * (2 ** formulaPrecision));
+  result['pMinInFp'] = Math.floor(minSupportPrice * (2 ** formulaPrecision));
+  result['numFpBits'] = formulaPrecision;
+  result['maxCapBuyInWei'] = maxTxBuyAmtEth * (10 ** 18);
+  result['maxCapSellInWei'] = maxTxSellAmtEth * (10 ** 18);
+  result['feeInBps'] = feePercent * 100;
+  result['maxTokenToEthRateInPrecision'] = maxSupportPrice * (10 ** 18);
+  result['minTokenToEthRateInPrecision'] = minSupportPrice * (10 ** 18);
+  return result;
+}
+
 function validateParams() {
+  let warnings = [];
   const minSupportPrice = tokenPriceInEth / Math.exp(liqRate * ethBalance);
   const actualMinAllowablePrice = minSupportPrice / tokenPriceInEth;
   let actualMaxAllowablePrice = 0;
@@ -120,72 +160,58 @@ function validateParams() {
   }
   
   if (actualMinAllowablePrice > minAllowablePrice) {
-    console.error(`WARNING: actual minAllowablePrice ${actualMinAllowablePrice} > configured minAllowablePrice ${minAllowablePrice}`);
+    warnings.push(`WARNING: actual minAllowablePrice ${actualMinAllowablePrice} > configured minAllowablePrice ${minAllowablePrice}`);
   }
   
   if (actualMaxAllowablePrice === 0) {
-    console.error('WARNING: actual maxAllowablePrice is big and cannot be calculated. Consider reducing token amount in reserve to avoid this.');
+    warnings.push('WARNING: actual maxAllowablePrice is big and cannot be calculated. Consider reducing token amount in reserve to avoid this.');
   } else if (actualMaxAllowablePrice < maxAllowablePrice) {
-    console.error(`WARNING: actual maxAllowablePrice ${actualMaxAllowablePrice.toFixed(3)} > configured maxAllowablePrice ${maxAllowablePrice}`);
+    warnings.push(`WARNING: actual maxAllowablePrice ${actualMaxAllowablePrice.toFixed(3)} < configured maxAllowablePrice ${maxAllowablePrice}`);
   }
   
   const expectedInitialPrice = tokenPriceInEth * minAllowablePrice * Math.exp(liqRate * ethBalance);
   const diff_percent = (expectedInitialPrice === tokenPriceInEth) ? 0 : (Math.abs(expectedInitialPrice - tokenPriceInEth) / expectedInitialPrice) * 100.0;
   if (diff_percent > 1.0) {
-    console.error(`WARNING: expectedInitialPrice ${expectedInitialPrice.toFixed(5)} differs from initial_price ${tokenPriceInEth.toFixed(5)} by ${diff_percent}%`);
+    warnings.push(`WARNING: expectedInitialPrice ${expectedInitialPrice.toFixed(5)} differs from initial_price ${tokenPriceInEth.toFixed(5)} by ${diff_percent}%`);
   }
+  return warnings;
 }
 
-function printParams() {
+function printParams(liqParams, printEtherscanDetails, warnings) {
   console.log(`\n`);
   console.log('#######################');
   console.log('### COMPUTED PARAMS ###');
   console.log('#######################');
-  console.log(`  "liquidity\_rate": ${liqRate},`);
-  console.log(`  "ether reserve balance": ${ethBalance},`);
-  console.log(`  "token reserve balance": ${tokenBalance},`);
-  console.log(`  "token price in ETH": ${tokenPriceInEth},`);
-  console.log(`  "min allowable price": ${minAllowablePrice},`);
-  console.log(`  "max allowable price": ${maxAllowablePrice},`);
-  console.log(`  "max tx buy amt (in ETH)": ${maxTxBuyAmtEth},`);
-  console.log(`  "max tx sell amt (in ETH)": ${maxTxSellAmtEth},`);
-  console.log(`  "fee percent": ${feePercent},`);
+  console.log(`liquidity rate: ${liqRate}`);
+  console.log(`ether reserve balance: ${ethBalance}`);
+  console.log(`token reserve balance: ${tokenBalance}`);
+  console.log(`token price in ETH: ${tokenPriceInEth}`);
+  console.log(`min allowable price: ${minAllowablePrice}`);
+  console.log(`max allowable price: ${maxAllowablePrice}`);
+  console.log(`max tx buy amt (in ETH): ${maxTxBuyAmtEth}`);
+  console.log(`max tx sell amt (in ETH): ${maxTxSellAmtEth}`);
+  console.log(`fee percent: ${feePercent}`);
 
   console.log(`\n`);
 
   console.log('########################');
   console.log('### LIQUIDITY PARAMS ###');
   console.log('########################');
-
-  const maxSupportPrice = maxAllowablePrice * tokenPriceInEth;
-  const minSupportPrice = minAllowablePrice * tokenPriceInEth;
-
-  const _rInFp = liqRate * (2 ** formulaPrecision);
-  console.log(`\_rInFp: ${Math.floor(_rInFp)}`);
-
-  const _pMinInFp = minSupportPrice * (2 ** formulaPrecision);
-  console.log(`\_pMinInFp: ${Math.floor(_pMinInFp)}`);
-
-  const _numFpBits = formulaPrecision;
-  console.log(`\_numFpBits: ${_numFpBits}`);
-
-  const _maxCapBuyInWei = maxTxBuyAmtEth * (10 ** 18);
-  console.log(`\_maxCapBuyInWei: ${_maxCapBuyInWei}`);
-
-  const _maxCapSellInWei = maxTxSellAmtEth * (10 ** 18);
-  console.log(`\_maxCapSellInWei: ${_maxCapSellInWei}`);
-
-  const _feeInBps = feePercent * 100;
-  console.log(`\_feeInBps: ${_feeInBps}`);
-
-  const _maxTokenToEthRateInPrecision = maxSupportPrice * (10 ** 18);
-  console.log(`\_maxTokenToEthRateInPrecision: ${_maxTokenToEthRateInPrecision}`);
-
-  const _minTokenToEthRateInPrecision = minSupportPrice * (10 ** 18);
-  console.log(`\_minTokenToEthRateInPrecision: ${_minTokenToEthRateInPrecision}`);
-
+  console.log(`\_rInFp: ${liqParams['rInFp']}`);
+  console.log(`\_pMinInFp: ${liqParams['pMinInFp']}`);
+  console.log(`\_numFpBits: ${liqParams['numFpBits']}`);
+  console.log(`\_maxCapBuyInWei: ${liqParams['maxCapBuyInWei']}`);
+  console.log(`\_maxCapSellInWei: ${liqParams['maxCapSellInWei']}`);
+  console.log(`\_feeInBps: ${liqParams['feeInBps']}`);
+  console.log(`\_maxTokenToEthRateInPrecision: ${liqParams['maxTokenToEthRateInPrecision']}`);
+  console.log(`\_minTokenToEthRateInPrecision: ${liqParams['minTokenToEthRateInPrecision']}`);
   console.log(`\n`);
-  console.log(`Call setLiquidityParams with above LIQUIDITY PARAMS of ${pricingAddress} using wallet ${pricingAdmin}: `);
-  console.log(`https://${networkName}etherscan.io/address/${pricingAddress}#writeContract`);
-  console.log(`\n`);
+
+  if (printEtherscanDetails) {
+    console.log(`Call setLiquidityParams with above LIQUIDITY PARAMS of ${pricingAddress} using wallet ${pricingAdmin}: `);
+    console.log(`https://${networkName}etherscan.io/address/${pricingAddress}#writeContract`);
+    console.log(`\n`);
+  }
+
+  warnings.map((warning) => { console.log(warning); });
 }
