@@ -13,9 +13,7 @@ contract ReserveGasProfiler {
         bool buy,
         uint256 srcQty
     ) external view returns (uint256) {
-        uint256 startGas = gasleft();
-        pricing.getRate(token, block.number, buy, srcQty);
-        return startGas - gasleft();
+        return pricing.getRate(token, block.number, buy, srcQty);
     }
 
     function profileReserveRate(
@@ -24,8 +22,6 @@ contract ReserveGasProfiler {
         IERC20 dest,
         uint256 srcQty
     ) external view returns (uint256) {
-        uint256 startGas = gasleft();
-        reserve.getConversionRate(src, dest, srcQty, block.number);
-        return startGas - gasleft();
+        return reserve.getConversionRate(src, dest, srcQty, block.number);
     }
 }

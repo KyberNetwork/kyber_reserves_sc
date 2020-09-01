@@ -70,18 +70,29 @@ async function setupReserves
 }
 
 // step functions
-const qtyBuyStepX = [0, 2000, 4000, 6000, 8000, 10000];
-const qtyBuyStepY = [0, -1, -2, -3, -4, -5];
-const imbalanceBuyStepX = [0, -2000, -4000, -6000, -8000, -10000];
-const imbalanceBuyStepY = [0,  -1, -2, -3, -4, -5];
-const qtySellStepX = [0, 2000, 4000, 6000, 8000, 10000];
-const qtySellStepY = [0, -1, -2, -3, -4, -5];
-const imbalanceSellStepX = [0, -2000, -4000, -6000, -8000, -10000];
-const imbalanceSellStepY = [0, -1, -2, -3, -4, -5];
+let qtyBuyStepX = [];
+let qtyBuyStepY = [];
+let imbalanceBuyStepX = [];
+let imbalanceBuyStepY = [];
+let qtySellStepX = [];
+let qtySellStepY = [];
+let imbalanceSellStepX = [];
+let imbalanceSellStepY = [];
+
+for (let i = 0; i < 10 ; i++) {
+  qtyBuyStepX.push(new BN(i * 2));
+  qtyBuyStepY.push(-i);
+  imbalanceBuyStepX.push(new BN(i * 2));
+  imbalanceBuyStepY.push(-i);
+  qtySellStepX.push(new BN(i * 2));
+  qtySellStepY.push(-i);
+  imbalanceSellStepX.push(new BN(-i * 2));
+  imbalanceSellStepY.push(-i);
+}
 
 const validRateDurationInBlocks = (new BN(9)).pow(new BN(21)); // some big number
 const minimalRecordResolution = 1000000; //low resolution so I don't lose too much data. then easier to compare calculated imbalance values.
-const maxPerBlockImbalance = precisionUnits.mul(new BN(10000)); // some big number
+const maxPerBlockImbalance = precisionUnits.mul(new BN(1000000)); // some big number
 const maxTotalImbalance = maxPerBlockImbalance.mul(new BN(3));
 
 module.exports.setupFprPricing = setupFprPricing;
@@ -100,6 +111,7 @@ async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPe
   for (let j = 0; j < tokens.length; ++j) {
     let token = tokens[j];
     let tokenAddress = token.address;
+    let tokenPrecision = new BN(10).pow(await token.decimals());
 
     // pricing setup
     await pricing.addToken(token.address, {from: admin});
@@ -117,18 +129,18 @@ async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPe
     tokenAdd = [tokenAddress];
     await pricing.setBaseRate(tokenAdd, baseBuyRate, baseSellRate, buys, sells, block, indices, {from: operator});
 
-    let buyX = qtyBuyStepX;
+    let buyX = qtyBuyStepX.map((qty) => { return tokenPrecision.mul(qty) });
     let buyY = qtyBuyStepY;
-    let sellX = qtySellStepX;
+    let sellX = qtySellStepX.map((qty) => { return tokenPrecision.mul(qty) });
     let sellY = qtySellStepY;
 
     if (numQtySteps == 0) numQtySteps = 1;
     buyX.length = buyY.length = sellX.length = sellY.length = numQtySteps;
     await pricing.setQtyStepFunction(tokenAddress, buyX, buyY, sellX, sellY, {from:operator});
 
-    buyX = imbalanceBuyStepX;
+    buyX = imbalanceBuyStepX.map((qty) => { return tokenPrecision.mul(qty) });
     buyY = imbalanceBuyStepY;
-    sellX = imbalanceSellStepX;
+    sellX = imbalanceSellStepX.map((qty) => { return tokenPrecision.mul(qty) });
     sellY = imbalanceSellStepY;
     if (numImbalanceSteps == 0) numImbalanceSteps = 1;
     buyX.length = buyY.length = sellX.length = sellY.length = numImbalanceSteps;
@@ -151,7 +163,7 @@ async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPe
 
   await pricing.setCompactData(buys, sells, block, indices, {from: operator});
   return pricing;
-}
+} 
 
 module.exports.setupFprReserve = setupFprReserve;
 async function setupFprReserve(network, tokens, ethSender, pricingAdd, ethInit, admin, operator) {
@@ -171,7 +183,7 @@ async function setupFprReserve(network, tokens, ethSender, pricingAdd, ethInit, 
     //reserve related setup
     await reserve.approveWithdrawAddress(token.address, ethSender, true, {from: admin});
 
-    let initialTokenAmount = new BN(200000).mul(new BN(10).pow(new BN(await token.decimals())));
+    let initialTokenAmount = new BN(20000000).mul(new BN(10).pow(new BN(await token.decimals())));
     await token.transfer(reserve.address, initialTokenAmount);
     await Helper.assertSameTokenBalance(reserve.address, token, initialTokenAmount);
   }
@@ -223,23 +235,24 @@ async function setupAprPricing(token, initPrice, ethBal, admin, operator) {
 }
 
 module.exports.setupAprReserve = setupAprReserve;
-async function setupAprReserve (network, token, ethSender, pricingAdd, ethInit, admin, operator) {
-    // setup reserve
-    let bank = await TempBank.new();
-    let reserve = await StrictValidatingReserve.new(network.address, pricingAdd, admin);
-    await reserve.setBank(bank.address);
-    await reserve.addOperator(operator, {from: admin});
-    await reserve.addAlerter(operator, {from: admin});
+async function setupAprReserve(network, token, ethSender, pricingAdd, ethInit, admin, operator) {
+  let reserve;
 
-    //set reserve balance. 10**18 wei ether + per token 10**18 wei ether value according to base rate.
-    await Helper.sendEtherWithPromise(ethSender, reserve.address, ethInit);
-    await Helper.assertSameEtherBalance(reserve.address, ethInit);
-    //reserve related setup
-    await reserve.approveWithdrawAddress(token.address, ethSender, true, {from: admin});
+  // setup reserve
+  reserve = await Reserve.new(network.address, pricingAdd, admin);
+  await reserve.addOperator(operator, {from: admin});
+  await reserve.addAlerter(operator, {from: admin});
 
-    let initialTokenAmount = new BN(200000).mul(new BN(10).pow(new BN(await token.decimals())));
-    await token.transfer(reserve.address, initialTokenAmount);
-    await Helper.assertSameTokenBalance(reserve.address, token, initialTokenAmount);
+  // set reserve balance. 10**18 wei ether + per token 10**18 wei ether value according to base rate.
+  await Helper.sendEtherWithPromise(ethSender, reserve.address, ethInit);
+  await Helper.assertSameEtherBalance(reserve.address, ethInit);
 
-    return reserve;
+  //reserve related setup
+  await reserve.approveWithdrawAddress(token.address, ethSender, true, {from: admin});
+
+  let initialTokenAmount = new BN(200000).mul(new BN(10).pow(new BN(await token.decimals())));
+  await token.transfer(reserve.address, initialTokenAmount);
+  await Helper.assertSameTokenBalance(reserve.address, token, initialTokenAmount);
+
+  return reserve;
 }
