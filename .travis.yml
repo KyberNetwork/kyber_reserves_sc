@@ -19,7 +19,7 @@ jobs:
         - TEST_PART: Coverage
 
 install:
-  - npm ci
+  - yarn install
 
 before_script:
   - npx solhint "contracts/sol6/**/*.sol"
