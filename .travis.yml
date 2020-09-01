@@ -23,6 +23,8 @@ install:
 
 before_script:
   - npx solhint "contracts/sol6/**/*.sol"
+  - npx solhint "contracts/sol6/**/*.sol"
+  - npx solhint "contracts/sol6/**/*.sol"
 
 script:
   - ./cmp.sh
