@@ -3,8 +3,8 @@ pragma solidity ^0.4.18;
 import "../ERC20Interface.sol";
 import "../Utils.sol";
 import "../reserves/fprConversionRate/ConversionRates.sol";
-import "../reserves/orderBookReserve/permissionless/OrderbookReserve.sol";
-import "../KyberNetworkInterface.sol";
+import "../previousVersions/orderBookReserve/permissionless/OrderbookReserve.sol";
+import "./KyberNetworkInterface.sol";
 
 
 contract NetworkInterface {
