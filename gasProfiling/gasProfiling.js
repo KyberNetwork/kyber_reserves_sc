@@ -6,26 +6,22 @@ const Helper = require("../test/helper");
 const { web3 } = require("@openzeppelin/test-helpers/src/setup");
 const BN = web3.utils.BN;
 
-let srcToken;
-let srcPrecision;
-let destToken;
-let destPrecision;
+let token;
+let tokenPrecision;
 
 let tokens;
 let initialEth = precisionUnits.mul(new BN(250));
 
 let fprPricing;
 let fprReserve;
-let srcAprPricing;
-let srcAprReserve;
-let destAprPricing;
-let destAprReserve;
+let enhancedFprPricing;
+let enhancedFprReserve;
+let aprPricing;
+let aprReserve;
 
 let srcQty;
-let t2eGasNon18;
-let t2eGas18;
-let e2tGasNon18;
-let e2tGas18;
+let t2eGas;
+let e2tGas;
 
 let reserveGasProfiler;
 
@@ -36,12 +32,10 @@ contract("GasProfiler", function(accounts) {
     operator = accounts[2];
     network = {address: user};
     reserveGasProfiler = await ReserveGasProfiler.new();
-    srcToken = await Token.new("SrcToken", "SRC", 8);
-    srcPrecision = new BN(10).pow(new BN(await srcToken.decimals()));
-    destToken = await Token.new("DestToken", "DEST", 18);
-    destPrecision = new BN(10).pow(new BN(await destToken.decimals()));
+    token = await Token.new("SrcToken", "SRC", 8);
+    tokenPrecision = new BN(10).pow(new BN(await token.decimals()));
 
-    tokens = [srcToken, destToken];
+    tokens = [token];
 
     // FPR Setup
     fprPricing = await localDeployer.setupFprPricing(
@@ -55,8 +49,8 @@ contract("GasProfiler", function(accounts) {
     );
 
     // set compact data
-    let compactBuyHex = [Helper.bytesToHex([8, -4])];
-    let compactSellHex = [Helper.bytesToHex([5, -3])];
+    let compactBuyHex = [Helper.bytesToHex([8])];
+    let compactSellHex = [Helper.bytesToHex([5])];
     let indices = [0];
     Helper.assertEqual(indices.length, compactBuyHex.length, "bad buys array size");
     Helper.assertEqual(indices.length, compactSellHex.length, "bad sells array size");
@@ -82,132 +76,174 @@ contract("GasProfiler", function(accounts) {
 
     await fprPricing.setReserveAddress(fprReserve.address, {from: admin});
 
-    // APRs Setup
-    srcAprPricing = await localDeployer.setupAprPricing(srcToken, 1.0, initialEth, admin, operator);
-    destAprPricing = await localDeployer.setupAprPricing(destToken, 1.0, initialEth, admin, operator);
-    srcAprReserve = await localDeployer.setupAprReserve(network, srcToken, accounts[1], srcAprPricing.address, initialEth, admin, operator);
-    destAprReserve = await localDeployer.setupAprReserve(network, destToken, accounts[1], destAprPricing.address, initialEth, admin, operator);
-    await srcAprPricing.setReserveAddress(srcAprReserve.address, {from: admin});
-    await destAprPricing.setReserveAddress(destAprReserve.address, {from: admin});
+    // enchanced FPR Setup
+    enhancedFprPricing = await localDeployer.setupEnhancedPricing(
+      tokens,
+      15,
+      precisionUnits,
+      precisionUnits,
+      admin,
+      operator
+    );
+
+    // create and point to enhanced FPR reserve
+    enhancedFprReserve = await localDeployer.setupFprReserve(
+      network,
+      tokens,
+      accounts[0],
+      enhancedFprPricing.address,
+      initialEth,
+      admin,
+      operator
+    );
+
+    await enhancedFprPricing.setReserveAddress(enhancedFprReserve.address, {from: admin});
+
+    // APR Setup
+    aprPricing = await localDeployer.setupAprPricing(token, 1.0, initialEth, admin, operator);
+    aprReserve = await localDeployer.setupAprReserve(network, token, accounts[1], aprPricing.address, initialEth, admin, operator);
+    await aprPricing.setReserveAddress(aprReserve.address, {from: admin});
   });
 
   describe("FPR Gas Profiling", async() => {
     it("prints gas costs for FPR getRate function", async() => {
       let result = [];
-      for (let steps = 1; steps <= 8; steps ++) {
+      for (let steps = 1; steps <= 10; steps ++) {
         srcQty = new BN(steps * 2);
-        t2eGasNon18 = await reserveGasProfiler.profilePricingRate(
+        t2eGas = await reserveGasProfiler.profilePricingRate(
           fprPricing.address,
-          srcToken.address,
+          token.address,
           false,
-          srcQty.mul(srcPrecision)
+          srcQty.mul(tokenPrecision)
         );
   
-        e2tGasNon18 = await reserveGasProfiler.profilePricingRate(
+        e2tGas = await reserveGasProfiler.profilePricingRate(
           fprPricing.address,
-          srcToken.address,
-          true,
-          srcQty.mul(precisionUnits)
-        );
-  
-        t2eGas18 = await reserveGasProfiler.profilePricingRate(
-          fprPricing.address,
-          destToken.address,
-          false,
-          srcQty.mul(destPrecision)
-        );
-  
-        e2tGas18 = await reserveGasProfiler.profilePricingRate(
-          fprPricing.address,
-          destToken.address,
+          token.address,
           true,
           srcQty.mul(precisionUnits)
         );
   
         result.push({
-          t2eNon18: t2eGasNon18.toNumber(),
-          e2tNon18: e2tGasNon18.toNumber(),
-          t2e18: t2eGas18.toNumber(),
-          e2t18: e2tGas18.toNumber()
+          numSteps: steps,
+          t2e: t2eGas.toNumber(),
+          e2t: e2tGas.toNumber()
         });
       }
       console.log("### FPR getRate ###");
-      console.table(result);
+      logRates(result);
     });
 
     it("prints gas costs for FPR doTrade() function", async() => {
       let currentBlock = await web3.eth.getBlockNumber();
       let rate;
       let tx;
-      await srcToken.approve(fprReserve.address, MAX_ALLOWANCE);
-      await destToken.approve(fprReserve.address, MAX_ALLOWANCE);
+      await token.approve(fprReserve.address, MAX_ALLOWANCE);
       let srcQty = new BN(2);
 
       rate = await fprReserve.getConversionRate(
-        srcToken.address,
+        token.address,
         ethAddress,
-        srcQty.mul(srcPrecision),
+        srcQty.mul(tokenPrecision),
         currentBlock
       );
       tx = await fprReserve.trade(
-        srcToken.address,
-        srcQty.mul(srcPrecision),
+        token.address,
+        srcQty.mul(tokenPrecision),
         ethAddress,
         user,
         rate,
         true
       );
-      console.log(`FPR t2e (non-18 decimals token): ${tx.receipt.gasUsed}`);
+      console.log(`FPR t2e trade: ${tx.receipt.gasUsed}`);
 
       rate = await fprReserve.getConversionRate(
         ethAddress,
-        srcToken.address,
+        token.address,
         srcQty.mul(precisionUnits),
         currentBlock
       );
       tx = await fprReserve.trade(
         ethAddress,
         srcQty.mul(precisionUnits),
-        srcToken.address,
+        token.address,
         user,
         rate,
         true,
         {value: srcQty.mul(precisionUnits)}
       );
-      console.log(`FPR e2t (non-18 decimals token): ${tx.receipt.gasUsed}`);
-        
-      rate = await fprReserve.getConversionRate(
-        destToken.address,
+      console.log(`FPR e2t trade: ${tx.receipt.gasUsed}`);
+    });
+  });
+
+  describe("enhanced FPR Gas Profiling", async() => {
+    it("prints gas costs for enhanced FPR getRate function", async() => {
+      let result = [];
+      for (let steps = 1; steps <= 15; steps ++) {
+        srcQty = new BN(steps * 2).mul(new BN(998)).div(new BN(1000));
+        t2eGas = await reserveGasProfiler.profilePricingRate(
+          enhancedFprPricing.address,
+          token.address,
+          false,
+          srcQty.mul(tokenPrecision)
+        );
+  
+        e2tGas = await reserveGasProfiler.profilePricingRate(
+          enhancedFprPricing.address,
+          token.address,
+          true,
+          srcQty.mul(precisionUnits)
+        );
+  
+        result.push({
+          numSteps: steps,
+          t2e: t2eGas.toNumber(),
+          e2t: e2tGas.toNumber()
+        });
+      }
+      console.log("### Enhanced FPR getRate ###");
+      logRates(result);
+    });
+
+    it("prints gas costs for enhanced FPR doTrade() function", async() => {
+      let currentBlock = await web3.eth.getBlockNumber();
+      let rate;
+      let tx;
+      await token.approve(enhancedFprReserve.address, MAX_ALLOWANCE);
+      let srcQty = new BN(2);
+
+      rate = await enhancedFprReserve.getConversionRate(
+        token.address,
         ethAddress,
-        srcQty.mul(destPrecision),
+        srcQty.mul(tokenPrecision),
         currentBlock
       );
-      tx = await fprReserve.trade(
-        destToken.address,
-        srcQty.mul(destPrecision),
+      tx = await enhancedFprReserve.trade(
+        token.address,
+        srcQty.mul(tokenPrecision),
         ethAddress,
         user,
         rate,
         true
       );
-      console.log(`FPR t2e (18 decimals token): ${tx.receipt.gasUsed}`);
-      
-      rate = await fprReserve.getConversionRate(
+      console.log(`enhanced FPR t2e trade: ${tx.receipt.gasUsed}`);
+
+      rate = await enhancedFprReserve.getConversionRate(
         ethAddress,
-        destToken.address,
+        token.address,
         srcQty.mul(precisionUnits),
         currentBlock
       );
-      tx = await fprReserve.trade(
+      tx = await enhancedFprReserve.trade(
         ethAddress,
         srcQty.mul(precisionUnits),
-        destToken.address,
+        token.address,
         user,
         rate,
         true,
         {value: srcQty.mul(precisionUnits)}
       );
-      console.log(`e2t (18 decimals token): ${tx.receipt.gasUsed}`);
+      console.log(`enhanced FPR e2t trade: ${tx.receipt.gasUsed}`);
     });
   });
 
@@ -216,43 +252,28 @@ contract("GasProfiler", function(accounts) {
       let result = [];
       for (let steps = 1; steps <= 5; steps ++) {
         srcQty = new BN(steps);
-        t2eGasNon18 = await reserveGasProfiler.profilePricingRate(
-          srcAprPricing.address,
-          srcToken.address,
+        t2eGas = await reserveGasProfiler.profilePricingRate(
+          aprPricing.address,
+          token.address,
           false,
-          srcQty.mul(srcPrecision)
+          srcQty.mul(tokenPrecision)
         );
   
-        e2tGasNon18 = await reserveGasProfiler.profilePricingRate(
-          srcAprPricing.address,
-          srcToken.address,
-          true,
-          srcQty.mul(precisionUnits)
-        );
-  
-        t2eGas18 = await reserveGasProfiler.profilePricingRate(
-          destAprPricing.address,
-          destToken.address,
-          false,
-          srcQty.mul(destPrecision)
-        );
-  
-        e2tGas18 = await reserveGasProfiler.profilePricingRate(
-          destAprPricing.address,
-          destToken.address,
+        e2tGas = await reserveGasProfiler.profilePricingRate(
+          aprPricing.address,
+          token.address,
           true,
           srcQty.mul(precisionUnits)
         );
   
         result.push({
-          t2eNon18: t2eGasNon18.toNumber(),
-          e2tNon18: e2tGasNon18.toNumber(),
-          t2e18: t2eGas18.toNumber(),
-          e2t18: e2tGas18.toNumber()
+          srcQty: srcQty.toNumber(),
+          t2e: t2eGas.toNumber(),
+          e2t: e2tGas.toNumber()
         });
       }
       console.log("### APR getRate ###");
-      console.table(result);
+      logRates(result);
     });
   });
 
@@ -261,73 +282,43 @@ contract("GasProfiler", function(accounts) {
     let rate;
     let tx;
     let srcQty = new BN(2);
-    await srcToken.approve(srcAprReserve.address, MAX_ALLOWANCE);
-    await destToken.approve(destAprReserve.address, MAX_ALLOWANCE);
+    await token.approve(aprReserve.address, MAX_ALLOWANCE);
 
-    rate = await srcAprReserve.getConversionRate(
-      srcToken.address,
+    rate = await aprReserve.getConversionRate(
+      token.address,
       ethAddress,
-      srcQty.mul(srcPrecision),
+      srcQty.mul(tokenPrecision),
       currentBlock
     );
-    tx = await srcAprReserve.trade(
-      srcToken.address,
-      srcQty.mul(srcPrecision),
+    tx = await aprReserve.trade(
+      token.address,
+      srcQty.mul(tokenPrecision),
       ethAddress,
       user,
       rate,
       true
     );
-    console.log(`APR t2e (non-18 decimals token): ${tx.receipt.gasUsed}`);
+    console.log(`APR t2e trade: ${tx.receipt.gasUsed}`);
 
-    rate = await srcAprReserve.getConversionRate(
+    rate = await aprReserve.getConversionRate(
       ethAddress,
-      srcToken.address,
+      token.address,
       srcQty.mul(precisionUnits),
       currentBlock
     );
-    tx = await srcAprReserve.trade(
+    tx = await aprReserve.trade(
       ethAddress,
       srcQty.mul(precisionUnits),
-      srcToken.address,
+      token.address,
       user,
       rate,
       true,
       {value: srcQty.mul(precisionUnits)}
     );
-    console.log(`APR e2t (non-18 decimals token): ${tx.receipt.gasUsed}`);
-      
-    rate = await destAprReserve.getConversionRate(
-      destToken.address,
-      ethAddress,
-      srcQty.mul(destPrecision),
-      currentBlock
-    );
-    tx = await destAprReserve.trade(
-      destToken.address,
-      srcQty.mul(destPrecision),
-      ethAddress,
-      user,
-      rate,
-      true
-    );
-    console.log(`APR t2e (18 decimals token): ${tx.receipt.gasUsed}`);
-    
-    rate = await destAprReserve.getConversionRate(
-      ethAddress,
-      destToken.address,
-      srcQty.mul(precisionUnits),
-      currentBlock
-    );
-    tx = await destAprReserve.trade(
-      ethAddress,
-      srcQty.mul(precisionUnits),
-      destToken.address,
-      user,
-      rate,
-      true,
-      {value: srcQty.mul(precisionUnits)}
-    );
-    console.log(`APR e2t (18 decimals token): ${tx.receipt.gasUsed}`);
+    console.log(`APR e2t trade: ${tx.receipt.gasUsed}`);
   });
 });
+
+function logRates(result) {
+  console.table(result);
+}

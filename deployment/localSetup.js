@@ -3,8 +3,7 @@ const Helper = require("../test/helper");
 const Reserve = artifacts.require("KyberReserve.sol");
 const ConversionRates = artifacts.require("ConversionRates.sol");
 const LiquidityConversionRates = artifacts.require("LiquidityConversionRates.sol");
-const StrictValidatingReserve = artifacts.require("StrictValidatingReserve.sol");
-const TempBank = artifacts.require("TempBank.sol");
+const ConversionRatesEnhanced = artifacts.require("ConversionRateEnhancedSteps.sol");
 
 const {precisionUnits}  = require("../test/helper");
 const type_fpr = 1;
@@ -79,15 +78,18 @@ let qtySellStepY = [];
 let imbalanceSellStepX = [];
 let imbalanceSellStepY = [];
 
-for (let i = 0; i < 10 ; i++) {
-  qtyBuyStepX.push(new BN(i * 2));
-  qtyBuyStepY.push(-i);
-  imbalanceBuyStepX.push(new BN(i * 2));
-  imbalanceBuyStepY.push(-i);
-  qtySellStepX.push(new BN(i * 2));
-  qtySellStepY.push(-i);
-  imbalanceSellStepX.push(new BN(-i * 2));
-  imbalanceSellStepY.push(-i);
+for (let i = 0; i < 18 ; i++) {
+  positiveAmt = new BN(i * 2);
+  negativeAmt = new BN(-i * 2);
+
+  qtyBuyStepX.push(positiveAmt);
+  qtyBuyStepY.push(negativeAmt);
+  imbalanceBuyStepX.push(positiveAmt);
+  imbalanceBuyStepY.push(negativeAmt);
+  qtySellStepX.push(positiveAmt);
+  qtySellStepY.push(negativeAmt);
+  imbalanceSellStepX.push(negativeAmt);
+  imbalanceSellStepY.push(negativeAmt);
 }
 
 const validRateDurationInBlocks = (new BN(9)).pow(new BN(21)); // some big number
@@ -96,7 +98,17 @@ const maxPerBlockImbalance = precisionUnits.mul(new BN(1000000)); // some big nu
 const maxTotalImbalance = maxPerBlockImbalance.mul(new BN(3));
 
 module.exports.setupFprPricing = setupFprPricing;
-async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPerEther, ethersPerToken, admin, operator) {
+async function setupFprPricing(
+  tokens,
+  numImbalanceSteps,
+  numQtySteps,
+  tokensPerEther,
+  ethersPerToken,
+  admin,
+  operator,
+  qtyStepFns,
+  imbalanceStepFns
+) {
   let block = await web3.eth.getBlockNumber();
   let pricing = await ConversionRates.new(admin);
   await pricing.addOperator(operator, {from: admin})
@@ -129,19 +141,38 @@ async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPe
     tokenAdd = [tokenAddress];
     await pricing.setBaseRate(tokenAdd, baseBuyRate, baseSellRate, buys, sells, block, indices, {from: operator});
 
-    let buyX = qtyBuyStepX.map((qty) => { return tokenPrecision.mul(qty) });
-    let buyY = qtyBuyStepY;
-    let sellX = qtySellStepX.map((qty) => { return tokenPrecision.mul(qty) });
-    let sellY = qtySellStepY;
+    let buyX; 
+    let buyY;
+    let sellX; 
+    let sellY; 
+
+    if (qtyStepFns) {
+      buyX = qtyStepFns.buyX;
+      buyY = qtyStepFns.buyY;
+      sellX = qtyStepFns.sellX;
+      sellY = qtyStepFns.sellY;
+    } else {
+      buyX = [...qtyBuyStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      buyY = [...qtyBuyStepY];
+      sellX = [...qtySellStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      sellY = [...qtySellStepY];
+    }
 
     if (numQtySteps == 0) numQtySteps = 1;
     buyX.length = buyY.length = sellX.length = sellY.length = numQtySteps;
     await pricing.setQtyStepFunction(tokenAddress, buyX, buyY, sellX, sellY, {from:operator});
 
-    buyX = imbalanceBuyStepX.map((qty) => { return tokenPrecision.mul(qty) });
-    buyY = imbalanceBuyStepY;
-    sellX = imbalanceSellStepX.map((qty) => { return tokenPrecision.mul(qty) });
-    sellY = imbalanceSellStepY;
+    if (imbalanceStepFns) {
+      buyX = imbalanceStepFns.buyX;
+      buyY = imbalanceStepFns.buyY;
+      sellX = imbalanceStepFns.sellX;
+      sellY = imbalanceStepFns.sellY;
+    } else {
+      buyX = [...imbalanceBuyStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      buyY = [...imbalanceBuyStepY];
+      sellX = [...imbalanceSellStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      sellY = [...imbalanceSellStepY];
+    }
     if (numImbalanceSteps == 0) numImbalanceSteps = 1;
     buyX.length = buyY.length = sellX.length = sellY.length = numImbalanceSteps;
 
@@ -163,7 +194,7 @@ async function setupFprPricing (tokens, numImbalanceSteps, numQtySteps, tokensPe
 
   await pricing.setCompactData(buys, sells, block, indices, {from: operator});
   return pricing;
-} 
+}
 
 module.exports.setupFprReserve = setupFprReserve;
 async function setupFprReserve(network, tokens, ethSender, pricingAdd, ethInit, admin, operator) {
@@ -255,4 +286,89 @@ async function setupAprReserve(network, token, ethSender, pricingAdd, ethInit, a
   await Helper.assertSameTokenBalance(reserve.address, token, initialTokenAmount);
 
   return reserve;
+}
+
+module.exports.setupEnhancedPricing = setupEnhancedPricing;
+async function setupEnhancedPricing(
+  tokens,
+  numImbalanceSteps,
+  tokensPerEther,
+  ethersPerToken,
+  admin,
+  operator,
+  imbalanceStepFns
+) {
+  let block = await web3.eth.getBlockNumber();
+  let pricing = await ConversionRatesEnhanced.new(admin);
+  await pricing.addOperator(operator, {from: admin})
+  await pricing.addAlerter(operator, {from: admin})
+
+  await pricing.setValidRateDurationInBlocks(validRateDurationInBlocks, {from: admin});
+
+  let buys = [];
+  let sells = [];
+  let indices = [];
+
+  for (let j = 0; j < tokens.length; ++j) {
+    let token = tokens[j];
+    let tokenAddress = token.address;
+    let tokenPrecision = new BN(10).pow(await token.decimals());
+
+    // pricing setup
+    await pricing.addToken(token.address, {from: admin});
+    await pricing.setTokenControlInfo(token.address, minimalRecordResolution, maxPerBlockImbalance, maxTotalImbalance, {from: admin});
+    await pricing.enableTokenTrade(token.address, {from: admin});
+
+    //update rates array
+    let baseBuyRate = [];
+    let baseSellRate = [];
+    baseBuyRate.push(tokensPerEther);
+    baseSellRate.push(ethersPerToken);
+
+    buys.length = sells.length = indices.length = 0;
+
+    tokenAdd = [tokenAddress];
+    await pricing.setBaseRate(tokenAdd, baseBuyRate, baseSellRate, buys, sells, block, indices, {from: operator});
+
+    let buyX; 
+    let buyY;
+    let sellX; 
+    let sellY; 
+
+    if (imbalanceStepFns) {
+      buyX = imbalanceStepFns.buyX;
+      buyY = imbalanceStepFns.buyY;
+      sellX = imbalanceStepFns.sellX;
+      sellY = imbalanceStepFns.sellY;
+    } else {
+      buyX = [...imbalanceBuyStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      buyY = [...imbalanceBuyStepY];
+      sellX = [...imbalanceSellStepX.map((qty) => { return tokenPrecision.mul(qty) })];
+      sellX.reverse();
+      sellY = [...imbalanceSellStepY];
+    }
+    if (numImbalanceSteps == 0) numImbalanceSteps = 1;
+    buyX.length = sellX.length = numImbalanceSteps;
+    buyY.length = sellY.length = numImbalanceSteps + 1;
+    Helper.assertEqual(buyX.length + 1, buyY.length, "bad buy array size");
+    Helper.assertEqual(sellX.length + 1, sellY.length, "bad buy array size");
+
+    await pricing.setImbalanceStepFunction(tokenAddress, buyX, buyY, sellX, sellY, {from:operator});
+  }
+
+  compactBuyArr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let compactBuyHex = Helper.bytesToHex(compactBuyArr);
+  buys.push(compactBuyHex);
+
+  compactSellArr =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let compactSellHex = Helper.bytesToHex(compactSellArr);
+  sells.push(compactSellHex);
+
+  indices[0] = 0;
+
+  Helper.assertEqual(indices.length, sells.length, "bad sells array size");
+  Helper.assertEqual(indices.length, buys.length, "bad buys array size");
+
+  await pricing.setCompactData(buys, sells, block, indices, {from: operator});
+  return pricing;
 }
