@@ -4,7 +4,7 @@ import "../ERC20Interface.sol";
 import "../Utils.sol";
 import "../fprConversionRate/ConversionRates.sol";
 import "../previousVersions/orderBookReserve/permissionless/OrderbookReserve.sol";
-import "./KyberNetworkInterface.sol";
+import "../KyberNetworkInterface.sol";
 
 
 contract NetworkInterface {
