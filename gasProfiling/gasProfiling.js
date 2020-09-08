@@ -1,5 +1,7 @@
 const Token = artifacts.require('Token.sol');
 const ReserveGasProfiler = artifacts.require('ReserveGasProfiler.sol');
+const fs = require("fs");
+const path = require('path');
 const localDeployer = require("../deployment/localSetup");
 const { ethAddress, precisionUnits, MAX_ALLOWANCE } = require("../test/helper");
 const Helper = require("../test/helper");
@@ -24,6 +26,8 @@ let t2eGas;
 let e2tGas;
 
 let reserveGasProfiler;
+
+let fullGasReport = {};
 
 contract("GasProfiler", function(accounts) {
   before("deploy the relevant reserves and tokens", async() => {
@@ -131,7 +135,7 @@ contract("GasProfiler", function(accounts) {
         });
       }
       console.log("### FPR getRate ###");
-      logRates(result);
+      logRates(result, 'FPR');
     });
 
     it("prints gas costs for FPR doTrade() function", async() => {
@@ -156,6 +160,7 @@ contract("GasProfiler", function(accounts) {
         true
       );
       console.log(`FPR t2e trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['FPR']['trade']['t2e'] = tx.receipt.gasUsed;
 
       rate = await fprReserve.getConversionRate(
         ethAddress,
@@ -173,6 +178,7 @@ contract("GasProfiler", function(accounts) {
         {value: srcQty.mul(precisionUnits)}
       );
       console.log(`FPR e2t trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['FPR']['trade']['e2t'] = tx.receipt.gasUsed;
     });
   });
 
@@ -202,7 +208,7 @@ contract("GasProfiler", function(accounts) {
         });
       }
       console.log("### Enhanced FPR getRate ###");
-      logRates(result);
+      logRates(result, 'EFPR');
     });
 
     it("prints gas costs for enhanced FPR doTrade() function", async() => {
@@ -227,6 +233,7 @@ contract("GasProfiler", function(accounts) {
         true
       );
       console.log(`enhanced FPR t2e trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['EFPR']['trade']['t2e'] = tx.receipt.gasUsed;
 
       rate = await enhancedFprReserve.getConversionRate(
         ethAddress,
@@ -244,6 +251,7 @@ contract("GasProfiler", function(accounts) {
         {value: srcQty.mul(precisionUnits)}
       );
       console.log(`enhanced FPR e2t trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['EFPR']['trade']['e2t'] = tx.receipt.gasUsed;
     });
   });
 
@@ -273,52 +281,82 @@ contract("GasProfiler", function(accounts) {
         });
       }
       console.log("### APR getRate ###");
-      logRates(result);
+      logRates(result, 'APR');
+    });
+
+    it("prints gas costs for APR doTrade() function", async() => {
+      let currentBlock = await web3.eth.getBlockNumber();
+      let rate;
+      let tx;
+      let srcQty = new BN(2);
+      await token.approve(aprReserve.address, MAX_ALLOWANCE);
+
+      rate = await aprReserve.getConversionRate(
+        token.address,
+        ethAddress,
+        srcQty.mul(tokenPrecision),
+        currentBlock
+      );
+      tx = await aprReserve.trade(
+        token.address,
+        srcQty.mul(tokenPrecision),
+        ethAddress,
+        user,
+        rate,
+        true
+      );
+      console.log(`APR t2e trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['APR']['trade']['t2e'] = tx.receipt.gasUsed;
+
+      rate = await aprReserve.getConversionRate(
+        ethAddress,
+        token.address,
+        srcQty.mul(precisionUnits),
+        currentBlock
+      );
+      tx = await aprReserve.trade(
+        ethAddress,
+        srcQty.mul(precisionUnits),
+        token.address,
+        user,
+        rate,
+        true,
+        {value: srcQty.mul(precisionUnits)}
+      );
+      console.log(`APR e2t trade: ${tx.receipt.gasUsed}`);
+      fullGasReport['APR']['trade']['e2t'] = tx.receipt.gasUsed;
     });
   });
-
-  it("prints gas costs for APR doTrade() function", async() => {
-    let currentBlock = await web3.eth.getBlockNumber();
-    let rate;
-    let tx;
-    let srcQty = new BN(2);
-    await token.approve(aprReserve.address, MAX_ALLOWANCE);
-
-    rate = await aprReserve.getConversionRate(
-      token.address,
-      ethAddress,
-      srcQty.mul(tokenPrecision),
-      currentBlock
-    );
-    tx = await aprReserve.trade(
-      token.address,
-      srcQty.mul(tokenPrecision),
-      ethAddress,
-      user,
-      rate,
-      true
-    );
-    console.log(`APR t2e trade: ${tx.receipt.gasUsed}`);
-
-    rate = await aprReserve.getConversionRate(
-      ethAddress,
-      token.address,
-      srcQty.mul(precisionUnits),
-      currentBlock
-    );
-    tx = await aprReserve.trade(
-      ethAddress,
-      srcQty.mul(precisionUnits),
-      token.address,
-      user,
-      rate,
-      true,
-      {value: srcQty.mul(precisionUnits)}
-    );
-    console.log(`APR e2t trade: ${tx.receipt.gasUsed}`);
+  
+  describe("Report Export", async() => {
+    it("should export gas report", async() => {
+      writeReport();
+    });
   });
 });
 
-function logRates(result) {
+function logRates(result, reserveName) {
   console.table(result);
+
+  fullGasReport[reserveName] = {
+    'getRate': result,
+    'trade': {}
+  };
+}
+
+async function writeReport() {
+  let jsonContent = JSON.stringify(fullGasReport, null, '\t');
+  let reportDir = path.join(__dirname, '../report');
+  let reportFile = path.join(__dirname, `../report/gasProfiles.json`);
+  if (!fs.existsSync(reportDir)) {
+    fs.mkdirSync(reportDir, {recursive: true});
+  }
+  fs.writeFile(reportFile, jsonContent, 'utf8', function (err) {
+    if (err) {
+      console.log('An error occured while writing JSON Object to File.');
+      return console.log(err);
+    } else {
+      console.log("exported report!");
+    }
+  });
 }

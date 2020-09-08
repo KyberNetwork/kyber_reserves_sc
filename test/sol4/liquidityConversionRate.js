@@ -765,8 +765,8 @@ contract('kyberReserve for Liquidity', function(accounts) {
         while (true) {
             iterations++;
             balancesBefore = await getBalances();
-            amountTokens = (!prevSellRate) ? 70000 : 70000
-            amountTwei = new BN(amountTokens).mul(tokenPrecision)
+            amountTokens = 72000;
+            amountTwei = new BN(amountTokens).mul(tokenPrecision);
             amountTokensAfterFees = amountTokens * actualFee;
 
             // calculate expected qunatity
@@ -804,7 +804,7 @@ contract('kyberReserve for Liquidity', function(accounts) {
                 prevSellRate = sellRate;
             }
 
-            //pre trade step, approve allowance from user to network.
+            // pre trade step, approve allowance from user to network.
             await token.approve(reserveInst.address, amountTwei, {from: network});
             await reserveInst.trade(token.address, amountTwei, ethAddress, user2, sellRate, true, {from:network});
             balancesAfter = await getBalances();
