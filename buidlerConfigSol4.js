@@ -9,6 +9,7 @@ module.exports = {
   },
 
   paths: {
-    sources: "./contracts/sol4"
+    sources: "./contracts/sol4",
+    tests: "./test/sol4"
   }
 };

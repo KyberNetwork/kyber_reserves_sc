@@ -38,7 +38,7 @@ module.exports = {
     default_balance_ether: 100000000000000,
     total_accounts: 20,
   },
-  skipFiles: ['mock/', 'zeppelin/'],
+  skipFiles: ['previousVersions/', 'mock/', 'zeppelin/'],
   istanbulReporter: ['html', 'json'],
-  onCompileComplete: buildFiles,
+  onCompileComplete: buildFiles
 };
