@@ -3,8 +3,6 @@
 const Web3 = require("web3");
 const fs = require("fs");
 const path = require('path');
-const RLP = require('rlp');
-const BigNumber = require('bignumber.js');
 
 const mainnetUrls = ['https://mainnet.infura.io',
                      'https://semi-node.kyber.network',
