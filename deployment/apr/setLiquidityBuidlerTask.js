@@ -31,7 +31,7 @@ task("setLiquidityParams", "(re-)sets the liquidity settings of an APR")
   .addOptionalParam("a", "automatically fetch price via CoinGecko.", true, types.boolean)
   .setAction(async({r, a}) => {
     networkName = await ethers.provider.getNetwork();
-    if (networkName.id == 1) {
+    if (networkName.chainId == 1) {
       networkName = '';
     } else {
       networkName = networkName.name + '.';
