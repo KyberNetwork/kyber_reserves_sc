@@ -12,7 +12,9 @@
     "compile": "./cmp.sh",
     "c6": "./cmpSol6.sh",
     "c": "./cmp.sh",
-    "coverage": "./coverage.sh",
+    "coverage4": "./coverage.sh -v sol4",
+    "coverage5": "./coverage.sh -v sol5",
+    "coverage6": "./coverage.sh -v sol6",
     "lint": "yarn solhint 'contracts/**/*.sol'",
     "gas": "buidler test ./gasProfiling/gasProfiling.js",
     "g": "buidler test ./gasProfiling/gasProfiling.js"

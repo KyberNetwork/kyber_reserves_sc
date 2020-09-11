@@ -26,9 +26,6 @@ We use `yarn` as the package manager. You may use `npm` and `npx` instead, but c
 `yarn buidler test --no-compile ./test/sol6/sanityRatesGasPrice.js`
 
 ## Coverage with `buidler-coverage`
-1. Run `yarn coverage`
-2. Use `./coverage.sh -f` for running a specific test file.
-
-### Example Commands
-- `yarn coverage` (Runs coverage for all applicable files)
-`./coverage.sh -f ./test/sol6/sanityRatesGasPrice.js` (Coverage for only sanityRatesGasPrice.js)
+1. Run `yarn coverage4` for coverage on sol4 files
+2. Run `yarn coverage5` for coverage on sol5 files
+3. Run `yarn coverage6` for coverage on sol6 files
