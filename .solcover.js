@@ -6,6 +6,7 @@ const storageArtifactsPath = path.join(__dirname, '.tempCoverageArtifacts');
 const coverageArtifactsPath = path.join(__dirname, '.coverage_artifacts');
 
 function cpStorageToCoverage(config) {
+  if (!fs.existsSync(storageArtifactsPath)) return;
   const storageFiles = fs.readdirSync(storageArtifactsPath);
   if (storageFiles) {
     storageFiles.forEach((file) => {
