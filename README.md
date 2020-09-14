@@ -7,7 +7,12 @@ We use `yarn` as the package manager. You may use `npm` and `npx` instead, but c
 
 ## Setup
 1. Clone this repo
-2. `yarn`
+2. `yarn install`
+3. Create a `.env` file with your private and infura keys as such:
+```
+PRIVATE_KEY=0x****************************************************************
+INFURA_API_KEY=********************************
+```
 
 ## Compilation with Buidler
 1. `yarn compile` to compile contracts for all solidity versions.
