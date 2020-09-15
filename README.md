@@ -8,15 +8,19 @@ We use `yarn` as the package manager. You may use `npm` and `npx` instead, but c
 ## Setup
 1. Clone this repo
 2. `yarn install`
-3. Create a `.env` file with your private and infura keys as such:
-```
-PRIVATE_KEY=0x****************************************************************
-INFURA_API_KEY=********************************
-```
 
 ## Compilation with Buidler
 1. `yarn compile` to compile contracts for all solidity versions.
 2. `yarn compileSol6` to compile only sol6 contracts
+
+## Contract Deployment / Interactions
+
+For interactions or contract deployments on public testnets / mainnet, create a `.env` file specifying your private key and infura api key, with the following format:
+
+```
+PRIVATE_KEY=0x****************************************************************
+INFURA_API_KEY=********************************
+```
 
 ## Testing with Buidler
 1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
