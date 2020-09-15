@@ -1,4 +1,7 @@
 ## Introduction
+[![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
+[![Build Status](https://api.travis-ci.com/KyberNetwork/kyber_reserves_sc.svg?branch=master&status=passed)](https://travis-ci.com/github/KyberNetwork/kyber_reserves_sc)
+
 This repository contains the kyber reserve smart contracts.
 For more details, please visit the reserves section of our [developer portal](https://developer.kyber.network/docs/Reserves-Intro/)
 

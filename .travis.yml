@@ -10,7 +10,7 @@ before_install:
 jobs:
   include:
     - env:
-        - TEST_PART: Sol6
+        - TEST_PART: fullRegression
 
 install:
   - yarn install
@@ -20,5 +20,5 @@ before_script:
 
 script:
   - yarn c
-  - .travis/test-part.sh
+  - .travis/full-regression.sh
   - .travis/report.sh

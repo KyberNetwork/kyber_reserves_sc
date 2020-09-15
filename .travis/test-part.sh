@@ -6,10 +6,10 @@ set -euxo pipefail
 readonly test_part=${TEST_PART:-}
 
 case "$test_part" in
-Sol6)
+fullRegression)
     yarn buidler test --no-compile
     ;;
 *)
-    echo "test case not define yet"
+    echo "test case not defined yet"
     ;;
 esac
