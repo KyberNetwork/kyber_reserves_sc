@@ -20,5 +20,5 @@ before_script:
 
 script:
   - yarn c
-  - .travis/full-regression.sh
+  - .travis/test-part.sh
   - .travis/report.sh

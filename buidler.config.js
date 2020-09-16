@@ -2,6 +2,7 @@ usePlugin("@nomiclabs/buidler-truffle5");
 usePlugin("@nomiclabs/buidler-web3");
 
 require('dotenv').config();
+require('./deployment/fpr/fprBuidlerTask');
 require('./deployment/apr/aprBuidlerTask');
 require('./deployment/apr/setLiquidityBuidlerTask');
 
