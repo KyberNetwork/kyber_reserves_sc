@@ -1,6 +1,6 @@
 pragma solidity 0.5.11;
 
-import "./WethToken.sol";
+import "../../../IERC20.sol";
 
 // Simple mock contract for otc orderbook
 contract MockOtcOrderbook {

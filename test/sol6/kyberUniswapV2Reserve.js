@@ -2,7 +2,7 @@ const UniswapV2FactoryOutput = require('@uniswap/v2-core/build/UniswapV2Factory.
 const UniswapV2Router02Output = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
 const MockUniswapRounter = artifacts.require('MockUniswapRouter.sol');
 const KyberUniswapV2Reserve = artifacts.require('KyberUniswapV2Reserve.sol');
-const WETH9 = artifacts.require('WETH9.sol');
+const WethToken = artifacts.require('WethToken');
 const TestToken = artifacts.require('Token.sol');
 
 const truffleContract = require('@truffle/contract');
@@ -51,7 +51,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
     network = accounts[4];
     destAddress = accounts[5];
 
-    weth = await WETH9.new();
+    weth = await WethToken.new();
     testToken = await TestToken.new('test token', 'TST', new BN(15));
     testToken2 = await TestToken.new('test token', 'TST', new BN(19));
 

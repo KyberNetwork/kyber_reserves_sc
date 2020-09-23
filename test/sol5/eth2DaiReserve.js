@@ -54,7 +54,8 @@ contract('Eth2DaiReserve', function(accounts) {
         operator = accounts[3];
         user = accounts[4];
 
-        myWethToken = await WethToken.new("my weth token", "weth", 18);
+        myWethToken = await WethToken.new();
+        myWethToken.deposit({from: accounts[0], value: initOTCWethBalance.mul(new BN(1000000))});
         myDaiToken = await TestToken.new("my dai token", "dai", 18);
         otc = await MockOtcOrderbook.new(myWethToken.address, myDaiToken.address);
         reserve = await Eth2DaiReserve.new(network, feeBps, otc.address, myWethToken.address, admin);

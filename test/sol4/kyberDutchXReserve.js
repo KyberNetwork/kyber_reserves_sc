@@ -2,7 +2,7 @@ const BN = web3.utils.BN;
 const truffleAssert = require('truffle-assertions');
 
 const helper = require("../helper.js");
-const WETH9 = artifacts.require("WETH9");
+const WethToken = artifacts.require("WethToken");
 const KyberDutchXReserve = artifacts.require("KyberDutchXReserve");
 const MockDutchX = artifacts.require("MockDutchX");
 const TestToken = artifacts.require("TestToken");
@@ -54,7 +54,7 @@ contract("KyberDutchXReserve", async accounts => {
 
         await token1.transfer(kyberNetwork, new BN(10).pow(new BN(25)));
 
-        wethContract = await WETH9.new()
+        wethContract = await WethToken.new()
         dbg(`deployed weth to ${wethContract.address}`)
 
         dutchX = await MockDutchX.new(wethContract.address);

@@ -36,7 +36,6 @@ contracts/sol4/aprConversionRate/LiquidityConversionRates.sol
 contracts/sol4/aprConversionRate/LiquidityFormula.sol
 contracts/sol4/bridgeReserves/dutchX/KyberDutchXReserve.sol
 contracts/sol4/bridgeReserves/dutchX/mock/MockDutchX.sol
-contracts/sol4/bridgeReserves/dutchX/mock/WETH9.sol
 contracts/sol4/bridgeReserves/uniswap/forTesting/KyberTestingUniswapReserve.sol
 contracts/sol4/bridgeReserves/uniswap/forTesting/MockUniswapFactory.sol
 contracts/sol4/bridgeReserves/uniswap/KyberUniswapReserve.sol
@@ -47,7 +46,7 @@ contracts/sol4/reserves/VolumeImbalanceRecorder.sol
 
 ## weth
 contracts/sol4/weth/KyberWethReserve.sol
-contracts/sol4/weth/mockContracts/MockWeth.sol
+contracts/sol4/weth/mockContracts/WethToken.sol
 
 ## wrappers
 contracts/sol4/wrappers/KyberNetworkInterface.sol
