@@ -1,0 +1,9 @@
+{
+  "reserve": "0xe62f804577ecfa9e9a9beddd7f4717e68f8d7048",
+  "tokenPriceInEth": 0.00153086,
+  "minAllowablePrice": 0.5,
+  "maxAllowablePrice": 2,
+  "maxTxBuyAmtEth": 10,
+  "maxTxSellAmtEth": 10,
+  "feePercent": 0.05
+}

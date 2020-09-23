@@ -1,0 +1,8 @@
+{
+  "tokenAddress": "0x419d0d8bdd9af5e606ae2232ed285aff190e711b",
+  "whitelistedAddresses": ["0x38281918d656baeD863553a4F127Cdd5E52DBca9","0xb1c50BA3f1427f81E577022B876E8b71c62E4c67"],
+  "reserveAdmin": "0x38281918d656baeD863553a4F127Cdd5E52DBca9",
+  "reserveOperators": ["0xb1c50BA3f1427f81E577022B876E8b71c62E4c67"],
+  "pricingOperator": "0xb1c50BA3f1427f81E577022B876E8b71c62E4c67",
+  "outputFilename" : "apr_reserve_deployment_details.json"
+}

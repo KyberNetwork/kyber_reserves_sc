@@ -1,0 +1,58 @@
+{
+  "name": "smart-contracts",
+  "version": "2.0.0",
+  "description": "This repository contains the deployable reserve contracts on Kyber",
+  "main": "buidler.config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "./tst.sh",
+    "t": "./tst.sh",
+    "compile": "./cmp.sh",
+    "c6": "./cmpSol6.sh",
+    "c": "./cmp.sh",
+    "coverage4": "./coverage.sh -v sol4",
+    "coverage5": "./coverage.sh -v sol5",
+    "coverage6": "./coverage.sh -v sol6",
+    "lint": "yarn solhint 'contracts/**/*.sol'",
+    "gas": "buidler test ./gasProfiling/gasProfiling.js",
+    "g": "buidler test ./gasProfiling/gasProfiling.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KyberNetwork/kyber_reserves_sc.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KyberNetwork/kyber_reserves_sc/issues"
+  },
+  "homepage": "https://github.com/KyberNetwork/kyber_reserves_sc#readme",
+  "dependencies": {
+    "chai-as-promised": "7.1.1",
+    "dotenv": "8.2.0",
+    "ethers": "5.0.4",
+    "mathjs": "4.4.2",
+    "rlp": "2.2.4",
+    "solc": "0.6.6",
+    "solhint": "3.0.0-rc.8",
+    "truffle-assertions": "^0.9.2",
+    "web3": "1.2.4",
+    "yargs": "11.1.1"
+  },
+  "devDependencies": {
+    "@nomiclabs/buidler": "1.3.4",
+    "@nomiclabs/buidler-ethers": "2.0.0",
+    "@nomiclabs/buidler-truffle5": "1.3.4",
+    "@nomiclabs/buidler-web3": "1.3.4",
+    "@openzeppelin/test-helpers": "0.5.6",
+    "@uniswap/v2-periphery": "1.1.0-beta.0",
+    "chai": "4.2.0",
+    "chai-bn": "0.2.0",
+    "cp": "^0.2.0",
+    "mv": "2.1.1",
+    "prettier": "2.0.4",
+    "solidity-coverage": "0.7.10"
+  }
+}
