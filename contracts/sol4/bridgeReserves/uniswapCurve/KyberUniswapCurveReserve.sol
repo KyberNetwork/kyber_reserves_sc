@@ -74,8 +74,101 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         kyberNetwork = _kyberNetwork;
     }
 
-    function() public payable {
+    function() external payable {
         EtherReceival(msg.sender, msg.value);
+    }
+
+    function setKyberNetwork(address _kyberNetwork) external onlyAdmin {
+        require(_kyberNetwork != address(0));
+        if (kyberNetwork != _kyberNetwork) {
+            kyberNetwork = _kyberNetwork;
+            KyberNetworkSet(kyberNetwork);
+        }
+    }
+
+    /// @dev list a token to reserve
+    /// assume token will be in a Curve pool
+    /// bridgeTokenIndices: indices of list tokens that can be trade in Curve with the `token`
+    /// may need to call approveAllowances for these bridgeTokens
+    function listToken(
+        ERC20 token,
+        CurveDefiInterface _curve,
+        int128 _index,
+        int128[] _bridgeTokenIndices // index of bridge tokens in Curve pool
+    )
+        external onlyOperator
+    {
+        require(token != ERC20(0));
+        require(!tokenListed[token]);
+        tokenListed[token] = true;
+
+        token.approve(uniswapRouter, MAX_ALLOWANCE);
+        uniswapPair[token] = uniswapFactory.getPair(weth, address(token));
+
+        address[] memory curveTokens = new address[](_bridgeTokenIndices.length);
+        if (_curve != CurveDefiInterface(0)) {
+            require(_curve.coins(_index) == address(token));
+            curveDefiAddress[token] = _curve;
+            if (token.allowance(address(this), _curve) == 0) {
+                token.approve(_curve, MAX_ALLOWANCE);
+            }
+            tokenIndex[token] = _index;
+            for(uint256 i = 0; i < _bridgeTokenIndices.length; i++) {
+                address curveCoin = _curve.coins(_bridgeTokenIndices[i]);
+                require(curveCoin != address(0));
+                curveDefiAddress[curveCoin] = _curve;
+                tokenIndex[curveCoin] = _bridgeTokenIndices[i];
+                curveTokens[i] = curveCoin;
+            }
+            bridgeTokens[token] = curveTokens;
+        }
+
+        setDecimals(token);
+
+        TokenListed(token, _curve, _index, _bridgeTokenIndices, curveTokens);
+    }
+
+    function delistToken(ERC20 token) external onlyOperator {
+        require(tokenListed[token]);
+        delete tokenListed[token];
+        delete tokenIndex[token];
+        delete bridgeTokens[token];
+
+        token.approve(uniswapRouter, 0);
+        delete uniswapPair[token];
+
+        address curveAddress = curveDefiAddress[token];
+        if (curveAddress != address(0)) {
+            token.approve(curveAddress, 0);
+            delete curveDefiAddress[token];
+        }
+
+        TokenDelisted(token);
+    }
+
+    // in some cases we need to approve allowances for bridge tokens
+    function approveAllowances(
+        address spender,
+        ERC20[] tokens,
+        bool isReset
+    )
+        external onlyAdmin
+    {
+        uint256 allowance = isReset ? 0 : MAX_ALLOWANCE;
+        for(uint256 i = 0; i < tokens.length; i++) {
+            tokens[i].approve(spender, allowance);
+        }
+        ApprovedAllowances(spender, tokens, isReset);
+    }
+
+    function enableTrade() external onlyAdmin {
+        tradeEnabled = true;
+        TradeEnabled(true);
+    }
+
+    function disableTrade() external onlyAlerter {
+        tradeEnabled = false;
+        TradeEnabled(false);
     }
 
     /**
@@ -112,7 +205,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         bool useCurve; // whether using Curve is better
         uint256 destAmount;
         uint256 uniswapDestAmount;
-        (bridgeToken, useCurve, destAmount, uniswapDestAmount) = 
+        (bridgeToken, useCurve, destAmount, uniswapDestAmount) =
             getTradeInformation(srcToken, destToken, srcAmount);
 
         require(expectedDestAmount <= destAmount);
@@ -149,101 +242,6 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             expectedDestAmount,
             destAddress
         );
-        return true;
-    }
-
-    function setKyberNetwork(address _kyberNetwork) public onlyAdmin {
-        require(_kyberNetwork != address(0));
-        if (kyberNetwork != _kyberNetwork) {
-            kyberNetwork = _kyberNetwork;
-            KyberNetworkSet(kyberNetwork);
-        }
-    }
-
-    /// @dev list a token to reserve
-    /// assume token will be in a Curve pool
-    /// bridgeTokenIndices: indices of list tokens that can be trade in Curve with the `token`
-    /// may need to call approveAllowances for these bridgeTokens
-    function listToken(
-        ERC20 token,
-        CurveDefiInterface _curve,
-        int128 _index,
-        int128[] memory _bridgeTokenIndices // index of bridge tokens in Curve pool
-    )
-        public onlyOperator
-    {
-        require(token != ERC20(0));
-        require(!tokenListed[token]);
-        tokenListed[token] = true;
-
-        token.approve(uniswapRouter, MAX_ALLOWANCE);
-        uniswapPair[token] = uniswapFactory.getPair(weth, address(token));
-
-        address[] memory curveTokens = new address[](_bridgeTokenIndices.length);
-        if (_curve != CurveDefiInterface(0)) {
-            require(_curve.coins(_index) == address(token));
-            curveDefiAddress[token] = _curve;
-            if (token.allowance(address(this), _curve) == 0) {
-                token.approve(_curve, MAX_ALLOWANCE);
-            }
-            tokenIndex[token] = _index;
-            for(uint256 i = 0; i < _bridgeTokenIndices.length; i++) {
-                address curveCoin = _curve.coins(_bridgeTokenIndices[i]);
-                require(curveCoin != address(0));
-                curveDefiAddress[curveCoin] = _curve;
-                tokenIndex[curveCoin] = _bridgeTokenIndices[i];
-                curveTokens[i] = curveCoin;
-            }
-            bridgeTokens[token] = curveTokens;
-        }
-
-        setDecimals(token);
-
-        TokenListed(token, _curve, _index, _bridgeTokenIndices, curveTokens);
-    }
-
-    function delistToken(ERC20 token) public onlyOperator {
-        require(tokenListed[token]);
-        delete tokenListed[token];
-        delete tokenIndex[token];
-        delete bridgeTokens[token];
-
-        token.approve(uniswapRouter, 0);
-        delete uniswapPair[token];
-
-        address curveAddress = curveDefiAddress[token];
-        if (curveAddress != address(0)) {
-            token.approve(curveAddress, 0);
-            delete curveDefiAddress[token];
-        }
-
-        TokenDelisted(token);
-    }
-
-    // in some cases we need to approve allowances for bridge tokens
-    function approveAllowances(
-        address spender,
-        ERC20[] memory tokens,
-        bool isReset
-    )
-        public onlyAdmin
-    {
-        uint256 allowance = isReset ? 0 : MAX_ALLOWANCE;
-        for(uint256 i = 0; i < tokens.length; i++) {
-            tokens[i].approve(spender, allowance);
-        }
-        ApprovedAllowances(spender, tokens, isReset);
-    }
-
-    function enableTrade() public onlyAdmin returns (bool) {
-        tradeEnabled = true;
-        TradeEnabled(true);
-        return true;
-    }
-
-    function disableTrade() public onlyAlerter returns (bool) {
-        tradeEnabled = false;
-        TradeEnabled(false);
         return true;
     }
 
@@ -374,7 +372,9 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         bool useCurve,
         uint256 srcAmount,
         uint256 uniswapDestAmount
-    ) internal returns(uint destAmount) {
+    )
+        internal returns(uint destAmount)
+    {
         address[] memory path = new address[](2);
         path[1] = weth;
         if (!useCurve) {
