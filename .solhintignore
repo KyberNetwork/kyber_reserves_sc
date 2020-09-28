@@ -43,6 +43,9 @@ contracts/sol4/fprConversionRate/ConversionRateEnhancedSteps.sol
 contracts/sol4/fprConversionRate/ConversionRates.sol
 contracts/sol4/KyberReserve.sol
 contracts/sol4/reserves/VolumeImbalanceRecorder.sol
+contracts/sol4/bridgeReserves/uniswapCurve/CurveDefiInterface.sol
+contracts/sol4/bridgeReserves/uniswapCurve/UniswapRouterV01.sol
+contracts/sol4/bridgeReserves/uniswapCurve/UniswapV2Factory.sol
 
 ## weth
 contracts/sol4/weth/KyberWethReserve.sol
