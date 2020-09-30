@@ -113,6 +113,8 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
                 token.approve(_curve, MAX_ALLOWANCE);
             }
             tokenIndex[token] = _index;
+            // no more than 3 bridge tokens
+            require(_bridgeTokenIndices.length <= 3);
             for(uint256 i = 0; i < _bridgeTokenIndices.length; i++) {
                 address curveCoin = _curve.coins(_bridgeTokenIndices[i]);
                 require(curveCoin != address(0));
@@ -201,34 +203,37 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             conversionRate
         );
 
+        // using hint in conversion rate
+        uint256 position = conversionRate % 4;
         ERC20 bridgeToken;
-        bool useCurve; // whether using Curve is better
+        bool useCurve;
+
+        useCurve = position > 0;
+
         uint256 destAmount;
-        uint256 uniswapDestAmount;
-        (bridgeToken, useCurve, destAmount, uniswapDestAmount) =
-            getTradeInformation(srcToken, destToken, srcAmount);
-
-        require(expectedDestAmount <= destAmount);
-
         if (srcToken == ETH_TOKEN_ADDRESS) {
+            if (useCurve) {
+                bridgeToken = ERC20(bridgeTokens[srcToken][position - 1]);
+            }
             destAmount = doTradeEthToToken(
                 destToken,
                 bridgeToken,
                 useCurve,
-                srcAmount,
-                uniswapDestAmount
+                srcAmount
             );
             require(destAmount >= expectedDestAmount);
             destToken.transfer(destAddress, expectedDestAmount);
         } else {
             // collect src amount
             srcToken.transferFrom(msg.sender, address(this), srcAmount);
+            if (useCurve) {
+                bridgeToken = ERC20(bridgeTokens[srcToken][position - 1]);
+            }
             destAmount = doTradeTokenToEth(
                 srcToken,
                 bridgeToken,
                 useCurve,
-                srcAmount,
-                uniswapDestAmount
+                srcAmount
             );
             require(destAmount >= expectedDestAmount);
             destAddress.transfer(expectedDestAmount);
@@ -253,54 +258,58 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         ERC20 dest,
         uint256 srcQty,
         uint256 /* blockNumber */
-    ) public view returns (uint256) {
+    ) public view returns (uint256 rate) {
         if (!isValidTokens(src, dest)) return 0;
         if (!tradeEnabled) return 0;
         if (srcQty == 0) return 0;
 
         uint256 destAmount;
-        (, , destAmount, ) =
+        uint256 bridgeTokenPosition;
+        bool useCurve;
+        (bridgeTokenPosition, , useCurve, destAmount) =
             getTradeInformation(src, dest, srcQty);
         if (destAmount == 0) return 0;
-        return calcRateFromQty(
+        rate = calcRateFromQty(
             srcQty,
             destAmount,
             getDecimals(src),
             getDecimals(dest)
         );
+        return applyRateWithHint(rate, bridgeTokenPosition, useCurve);
     }
 
+    /// @dev get trade information, whether to use Curve or not
+    /// If use Curve, bridgeToken: token to use with Curve
+    /// bridgePosition: index of bridgeToken to use in bridgeTokens array
     function getTradeInformation(ERC20 src, ERC20 dest, uint256 srcQty)
         public view
         returns(
+            uint256 bridgePosition,
             ERC20 bridgeToken,
             bool useCurve,
-            uint256 destAmount,
-            uint256 uniswapDestAmount
+            uint256 destAmount
         )
     {
         address[] memory tokens;
         ERC20 token;
         uint256 i;
         uint256 destQty;
-        uint256 destUniswapQty;
 
         if (src == ETH_TOKEN_ADDRESS) {
             // check eth -> token in Uniwap, token -> dest in Curve
             // first, not use Curve, get amount eth-> dest in Uniswap
-            uniswapDestAmount = getUniswapDestAmount(dest, srcQty, true);
-            destAmount = uniswapDestAmount;
+            destAmount = getUniswapDestAmount(dest, srcQty, true);
             useCurve = false;
             tokens = bridgeTokens[dest];
             for(i = 0; i < tokens.length; i++) {
                 token = ERC20(tokens[i]);
                 // swap eth -> token in Uniswap, token -> dest in Curve
-                destUniswapQty = getUniswapDestAmount(token, srcQty, true);
-                if (destUniswapQty > 0) {
-                    destQty = getCurveDestAmount(token, dest, destUniswapQty);
+                destQty = getUniswapDestAmount(token, srcQty, true);
+                if (destQty > 0) {
+                    destQty = getCurveDestAmount(token, dest, destQty);
                     if (destQty > destAmount) {
                         destAmount = destQty;
-                        uniswapDestAmount = destUniswapQty;
+                        bridgePosition = i;
                         bridgeToken = token;
                         useCurve = true;
                     }
@@ -309,8 +318,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         } else {
             // check src -> token in Curve, token -> eth in Uniswap
             // first try to not use Curve
-            uniswapDestAmount = getUniswapDestAmount(src, srcQty, false);
-            destAmount = uniswapDestAmount;
+            destAmount = getUniswapDestAmount(src, srcQty, false);
             useCurve = false;
             tokens = bridgeTokens[src];
             for(i = 0; i < tokens.length; i++) {
@@ -318,10 +326,10 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
                 // swap src -> token in Curve, token -> eth in Uniswap
                 destQty = getCurveDestAmount(src, token, srcQty);
                 if (destQty > 0) {
-                    destUniswapQty = getUniswapDestAmount(token, destQty, false);
-                    if (destUniswapQty > destAmount) {
-                        destAmount = destUniswapQty;
-                        uniswapDestAmount = destUniswapQty;
+                    destQty = getUniswapDestAmount(token, destQty, false);
+                    if (destQty > destAmount) {
+                        destAmount = destQty;
+                        bridgePosition = i;
                         bridgeToken = token;
                         useCurve = true;
                     }
@@ -334,8 +342,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         ERC20 token,
         ERC20 bridgeToken,
         bool useCurve,
-        uint256 srcAmount,
-        uint256 uniswapDestAmount
+        uint256 srcAmount
     )
         internal returns(uint destAmount)
     {
@@ -347,7 +354,6 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             uniswapRouter.swapExactETHForTokens.value(srcAmount)(
                 0, path, address(this), DEADLINE
             );
-            destAmount = uniswapDestAmount;
         } else {
             // swap eth -> bridge token on Uniswap
             path[1] = address(bridgeToken);
@@ -358,20 +364,18 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             CurveDefiInterface(curveDefiAddress[bridgeToken]).exchange(
                 tokenIndex[bridgeToken],
                 tokenIndex[token],
-                uniswapDestAmount,
+                bridgeToken.balanceOf(address(this)),
                 0
             );
-            // can't trust Curve's returned destQty
-            destAmount = token.balanceOf(address(this));
         }
+        destAmount = token.balanceOf(address(this));
     }
 
     function doTradeTokenToEth(
         ERC20 token,
         ERC20 bridgeToken,
         bool useCurve,
-        uint256 srcAmount,
-        uint256 uniswapDestAmount
+        uint256 srcAmount
     )
         internal returns(uint destAmount)
     {
@@ -399,7 +403,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
                 destQty, 0, path, address(this), DEADLINE
             );
         }
-        destAmount = uniswapDestAmount;
+        destAmount = address(this).balance;
     }
 
     function getUniswapDestAmount(
@@ -431,5 +435,23 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
     function isValidTokens(ERC20 src, ERC20 dest) internal view returns (bool) {
         return ((src == ETH_TOKEN_ADDRESS && tokenListed[dest]) ||
             (tokenListed[src] && dest == ETH_TOKEN_ADDRESS));
+    }
+
+    /// @dev Apple rate with a trade hint, to save gas when calling trade function
+    ///      if not using Curve, rate % 4 = 0
+    ///      if using Curve, (rate % 4) - 1 is the index of bridgeToken to use
+    function applyRateWithHint(
+        uint256 rate,
+        uint256 position,
+        bool useCurve
+    )
+        internal view returns(uint256 newRate)
+    {
+        if (rate <= 8) { return rate; } // safe check to prevent underflow
+        // to make sure newRate <= rate after adding position
+        newRate = rate - (rate % 4) - 4;
+        if (useCurve) {
+            newRate += position + 1;
+        }
     }
 }
