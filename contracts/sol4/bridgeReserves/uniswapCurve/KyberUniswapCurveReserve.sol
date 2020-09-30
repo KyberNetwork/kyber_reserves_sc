@@ -344,6 +344,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
     )
         internal returns(uint destAmount)
     {
+        uint256 balanceBefore = token.balanceOf(address(this));
         address[] memory path = new address[](2);
         path[0] = weth;
         if (!useCurve) {
@@ -354,19 +355,24 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             );
         } else {
             // swap eth -> bridge token on Uniswap
+            uint256 bridgeTokenBalBefore = bridgeToken.balanceOf(address(this));
             path[1] = address(bridgeToken);
             uniswapRouter.swapExactETHForTokens.value(srcAmount)(
                 0, path, address(this), DEADLINE
             );
+            uint256 bridgeTokenBalAfter = bridgeToken.balanceOf(address(this));
+            require(bridgeTokenBalAfter >= bridgeTokenBalBefore);
             // swap bridge token -> dest on Curve
             CurveDefiInterface(curveDefiAddress[bridgeToken]).exchange(
                 tokenIndex[bridgeToken],
                 tokenIndex[token],
-                bridgeToken.balanceOf(address(this)),
+                bridgeTokenBalAfter - bridgeTokenBalBefore,
                 0
             );
         }
-        destAmount = token.balanceOf(address(this));
+        uint256 balanceAfter = token.balanceOf(address(this));
+        require(balanceAfter >= balanceBefore);
+        destAmount = balanceAfter - balanceBefore;
     }
 
     function doTradeTokenToEth(
@@ -377,6 +383,7 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
     )
         internal returns(uint destAmount)
     {
+        uint256 balanceBefore = address(this).balance;
         address[] memory path = new address[](2);
         path[1] = weth;
         if (!useCurve) {
@@ -387,21 +394,24 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             );
         } else {
             // swap from src -> bridge token on Curve
+            uint256 bridgeTokenBalBefore = bridgeToken.balanceOf(address(this));
             CurveDefiInterface(curveDefiAddress[bridgeToken]).exchange(
                 tokenIndex[token],
                 tokenIndex[bridgeToken],
                 srcAmount,
                 0
             );
-            // Curve doesn't return in exchange func
-            uint256 destQty = bridgeToken.balanceOf(address(this));
+            uint256 bridgeTokenBalAfter = bridgeToken.balanceOf(address(this));
+            require(bridgeTokenBalAfter >= bridgeTokenBalBefore);
             // swap from bridge token -> eth on Uniswap
             path[0] = address(bridgeToken);
             uniswapRouter.swapExactTokensForETH(
-                destQty, 0, path, address(this), DEADLINE
+                bridgeTokenBalAfter - bridgeTokenBalBefore, 0, path, address(this), DEADLINE
             );
         }
-        destAmount = address(this).balance;
+        uint256 balanceAfter = address(this).balance;
+        require(balanceAfter >= balanceBefore);
+        destAmount = balanceAfter - balanceBefore;
     }
 
     function getUniswapDestAmount(
