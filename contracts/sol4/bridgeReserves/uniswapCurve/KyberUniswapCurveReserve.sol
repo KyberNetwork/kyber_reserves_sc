@@ -206,14 +206,12 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         // using hint in conversion rate
         uint256 bridgeTokenHint = conversionRate % 4;
         ERC20 bridgeToken;
-        bool useCurve;
-
-        useCurve = bridgeTokenHint > 0;
+        bool useCurve = bridgeTokenHint > 0;
 
         uint256 destAmount;
         if (srcToken == ETH_TOKEN_ADDRESS) {
             if (useCurve) {
-                bridgeToken = ERC20(bridgeTokens[srcToken][bridgeTokenHint - 1]);
+                bridgeToken = ERC20(bridgeTokens[destToken][bridgeTokenHint - 1]);
             }
             destAmount = doTradeEthToToken(
                 destToken,
