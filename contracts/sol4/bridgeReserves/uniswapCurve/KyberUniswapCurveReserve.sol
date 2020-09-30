@@ -445,13 +445,14 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         uint256 position,
         bool useCurve
     )
-        internal view returns(uint256 newRate)
+        internal pure returns(uint256 newRate)
     {
-        if (rate <= 8) { return rate; } // safe check to prevent underflow
-        // to make sure newRate <= rate after adding position
-        newRate = rate - (rate % 4) - 4;
+        newRate = rate - (rate % 4);
         if (useCurve) {
-            newRate += position + 1;
+            newRate += (position + 1);
+            if (newRate > rate && newRate >= 4) {
+                newRate -= 4;
+            }
         }
     }
 }
