@@ -202,7 +202,7 @@ contract KyberBalancerReserve is IKyberReserve, Withdrawable3, Utils5 {
         uint256 destQty;
         if (src == ETH_TOKEN_ADDRESS) {
             uint256 nPools = numberPools[dest];
-            require(nPools > 0, "token is not listed");
+            if (nPools == 0) return 0; // token is not listed
             (, destQty) = exchangeProxy.viewSplitExactIn(
                 weth,
                 address(dest),
@@ -211,7 +211,7 @@ contract KyberBalancerReserve is IKyberReserve, Withdrawable3, Utils5 {
             );
         } else {
             uint256 nPools = numberPools[src];
-            require(nPools > 0, "token is not listed");
+            if (nPools == 0) return 0; // token is not listed
             (, destQty) = exchangeProxy.viewSplitExactIn(
                 address(src),
                 weth,
