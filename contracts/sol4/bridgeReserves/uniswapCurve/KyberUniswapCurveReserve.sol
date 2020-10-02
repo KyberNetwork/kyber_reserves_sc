@@ -203,16 +203,14 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             conversionRate
         );
 
-        // using hint in conversion rate
-        uint256 bridgeTokenHint = conversionRate % 4;
         ERC20 bridgeToken;
-        bool useCurve = bridgeTokenHint > 0;
-
+        bool useCurve;
         uint256 destAmount;
+
         if (srcToken == ETH_TOKEN_ADDRESS) {
-            if (useCurve) {
-                bridgeToken = ERC20(bridgeTokens[destToken][bridgeTokenHint - 1]);
-            }
+            // recalculate path for eth -> token trade
+            (, bridgeToken, useCurve, destAmount) =
+                getTradeInformation(srcToken, destToken, srcAmount);
             destAmount = doTradeEthToToken(
                 destToken,
                 bridgeToken,
@@ -222,6 +220,13 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             require(destAmount >= expectedDestAmount);
             destToken.transfer(destAddress, expectedDestAmount);
         } else {
+            // use hint in conversionRate
+            uint256 bridgeTokenHint = conversionRate % 4;
+            useCurve = bridgeTokenHint > 0;
+            if (useCurve) {
+                bridgeToken = ERC20(bridgeTokens[srcToken][bridgeTokenHint - 1]);
+            }
+
             // collect src amount
             srcToken.transferFrom(msg.sender, address(this), srcAmount);
             if (useCurve) {
@@ -273,7 +278,10 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
             getDecimals(src),
             getDecimals(dest)
         );
-        return applyRateWithHint(rate, bridgeTokenPosition, useCurve);
+        if (dest == ETH_TOKEN_ADDRESS) {
+            // apply hint only for token -> eth trade
+            rate = applyRateWithHint(rate, bridgeTokenPosition, useCurve);
+        }
     }
 
     /// @dev get trade information, whether to use Curve or not

@@ -14,7 +14,7 @@ let networkAddr = "0x7C66550C9c730B6fdd4C03bc2e73c5462c5F7ACC";
 let uniswapRouter = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
 let curveUSD = "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD";
 let curveBTC = "0x93054188d876f558f4a66B2EF1d97d16eDf0895B";
-let admin = "0xA724bD2C9883A3Ec1FC7c7A953b8CE3012393b9E";
+let admin = "0xBE2F0354D970265BFc36D383af77F72736b81B54";
 let usdt = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 let usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 let dai = "0x6b175474e89094c44da98b954eedeac495271d0f";
@@ -28,7 +28,7 @@ async function main() {
   deployer = accounts[0];
   console.log(`Deployer address at ${deployer}`);
 
-  gasPrice = new BN(72).mul(new BN(10).pow(new BN(9)));
+  gasPrice = new BN(42.5).mul(new BN(10).pow(new BN(9)));
   console.log(`Sending transactions with gas price: ${gasPrice.toString(10)} (${gasPrice.div(new BN(10).pow(new BN(9))).toString(10)} gweis)`);
 
   if (reserveAddr == undefined) {
@@ -44,32 +44,32 @@ async function main() {
     console.log(`Interact with reserve at ${reserveAddr}`);
   }
 
-  gasPrice = new BN(81.1).mul(new BN(10).pow(new BN(9)));
+  gasPrice = new BN(50).mul(new BN(10).pow(new BN(9)));
 
-  // await reserve.addOperator(deployer, { gasPrice: gasPrice });
+  await reserve.addOperator(deployer, { gasPrice: gasPrice });
 
   // List stable tokens
-  // await reserve.listToken(
-  //   dai,
-  //   curveUSD,
-  //   0,
-  //   [1, 2],
-  //   { gasPrice: gasPrice }
-  // );
-  // await reserve.listToken(
-  //   usdc,
-  //   curveUSD,
-  //   1,
-  //   [0, 2],
-  //   { gasPrice: gasPrice }
-  // );
-  // await reserve.listToken(
-  //   usdt,
-  //   curveUSD,
-  //   2,
-  //   [0, 1],
-  //   { gasPrice: gasPrice }
-  // );
+  await reserve.listToken(
+    dai,
+    curveUSD,
+    0,
+    [1, 2],
+    { gasPrice: gasPrice }
+  );
+  await reserve.listToken(
+    usdc,
+    curveUSD,
+    1,
+    [0, 2],
+    { gasPrice: gasPrice }
+  );
+  await reserve.listToken(
+    usdt,
+    curveUSD,
+    2,
+    [0, 1],
+    { gasPrice: gasPrice }
+  );
   await reserve.listToken(
     susd,
     curveUSD,
