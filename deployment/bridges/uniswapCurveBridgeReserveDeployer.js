@@ -2,15 +2,12 @@ const artifacts = require('@nomiclabs/buidler').artifacts
 const BN = web3.utils.BN;
 
 const UniswapCurveBridgeReserve = artifacts.require("KyberUniswapCurveReserve.sol");
-const ConversionRateEnhancedSteps = artifacts.require("ConversionRateEnhancedSteps.sol");
-
-const ethAddress = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
 let reserve;
-let reserveAddr = "0x08fc0ca3691d819984ebb3565669d1376d60afd3";
+let reserveAddr;
 
-// Ropsten data
-let networkAddr = "0x7C66550C9c730B6fdd4C03bc2e73c5462c5F7ACC";
+// Staging data
+let networkAddr = "0x9CB7bB6D4795A281860b9Bfb7B1441361Cc9A794";
 let uniswapRouter = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
 let curveUSD = "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD";
 let curveBTC = "0x93054188d876f558f4a66B2EF1d97d16eDf0895B";
@@ -28,7 +25,7 @@ async function main() {
   deployer = accounts[0];
   console.log(`Deployer address at ${deployer}`);
 
-  gasPrice = new BN(42.5).mul(new BN(10).pow(new BN(9)));
+  gasPrice = new BN(50).mul(new BN(10).pow(new BN(9)));
   console.log(`Sending transactions with gas price: ${gasPrice.toString(10)} (${gasPrice.div(new BN(10).pow(new BN(9))).toString(10)} gweis)`);
 
   if (reserveAddr == undefined) {
@@ -44,7 +41,7 @@ async function main() {
     console.log(`Interact with reserve at ${reserveAddr}`);
   }
 
-  gasPrice = new BN(50).mul(new BN(10).pow(new BN(9)));
+  gasPrice = new BN(55).mul(new BN(10).pow(new BN(9)));
 
   await reserve.addOperator(deployer, { gasPrice: gasPrice });
 
@@ -91,6 +88,8 @@ async function main() {
     [],
     { gasPrice: gasPrice }
   );
+  await reserve.addOperator(admin, { gasPrice: gasPrice });
+  await reserve.transferAdminQuickly(admin, { gasPrice: gasPrice });
 }
 
 
