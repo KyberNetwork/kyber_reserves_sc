@@ -2,11 +2,11 @@ pragma solidity 0.6.6;
 
 import "../IKyberReserve.sol";
 import "../IKyberSanity.sol";
-import "../utils/Utils5.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "../utils/zeppelin/SafeERC20.sol";
 
 
-contract MockReserve is IKyberReserve, Utils5 {
+contract MockReserve is IKyberReserve, Utils {
     using SafeERC20 for IERC20;
 
     IKyberSanity public sanityRatesContract;

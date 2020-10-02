@@ -1,7 +1,7 @@
 pragma solidity 0.6.6;
 pragma experimental ABIEncoderV2;
 
-import "../../IERC20.sol";
+import "@kyber.network/utils-sc/contracts/IERC20.sol";
 
 
 interface IBalancerExchangeProxy {

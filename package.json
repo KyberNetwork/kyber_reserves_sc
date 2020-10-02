@@ -42,6 +42,7 @@
     "yargs": "11.1.1"
   },
   "devDependencies": {
+    "@kyber.network/utils-sc": "^2.1.1",
     "@nomiclabs/buidler": "1.3.4",
     "@nomiclabs/buidler-ethers": "2.0.0",
     "@nomiclabs/buidler-truffle5": "1.3.4",

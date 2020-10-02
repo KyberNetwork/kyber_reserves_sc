@@ -3,13 +3,13 @@ pragma experimental ABIEncoderV2;
 
 import "./IBalancerExchangeProxy.sol";
 import "../../IKyberReserve.sol";
-import "../../IERC20.sol";
-import "../../utils/Withdrawable3.sol";
-import "../../utils/Utils5.sol";
+import "@kyber.network/utils-sc/contracts/IERC20.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "../../utils/zeppelin/SafeERC20.sol";
 
 
-contract KyberBalancerReserve is IKyberReserve, Withdrawable3, Utils5 {
+contract KyberBalancerReserve is IKyberReserve, Withdrawable, Utils {
     using SafeERC20 for IERC20;
 
     address public kyberNetwork;
@@ -45,7 +45,7 @@ contract KyberBalancerReserve is IKyberReserve, Withdrawable3, Utils5 {
         address _weth,
         address _kyberNetwork,
         address _admin
-    ) public Withdrawable3(_admin) {
+    ) public Withdrawable(_admin) {
         require(_exchangeProxy != IBalancerExchangeProxy(0), "exchangeProxy 0");
         require(_weth != address(0), "weth 0");
         require(_kyberNetwork != address(0), "kyberNetwork 0");
@@ -239,7 +239,7 @@ contract KyberBalancerReserve is IKyberReserve, Withdrawable3, Utils5 {
 
         token.safeApprove(address(exchangeProxy), MAX_ALLOWANCE);
 
-        setDecimals(token);
+        getSetDecimals(token);
 
         emit TokenListed(token, nPools);
     }

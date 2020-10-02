@@ -5,12 +5,12 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
 import "../../IKyberReserve.sol";
-import "../../IERC20.sol";
-import "../../utils/Withdrawable3.sol";
-import "../../utils/Utils5.sol";
+import "@kyber.network/utils-sc/contracts/IERC20.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "../../utils/zeppelin/SafeERC20.sol";
 
-contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
+contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable, Utils {
     using SafeERC20 for IERC20;
 
     uint256 public constant DEFAULT_FEE_BPS = 0;
@@ -56,7 +56,7 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
         address _weth,
         address _admin,
         address _kyberNetwork
-    ) public Withdrawable3(_admin) {
+    ) public Withdrawable(_admin) {
         require(address(_uniswapRouter) != address(0), "uniswapRouter 0");
         require(_weth != address(0), "weth 0");
         require(_kyberNetwork != address(0), "kyberNetwork 0");
@@ -192,7 +192,7 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
 
         token.safeApprove(address(uniswapRouter), MAX_ALLOWANCE);
 
-        setDecimals(token);
+        getSetDecimals(token);
 
         emit TokenListed(token, true);
     }

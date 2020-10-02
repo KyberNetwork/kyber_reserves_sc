@@ -1,8 +1,8 @@
 pragma solidity 0.6.6;
 
 import "./IKyberSanity.sol";
-import "./utils/Utils5.sol";
-import "./utils/Withdrawable3.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
 
 /**
  *   @title SanityRatesGasPrice contract
@@ -20,7 +20,7 @@ import "./utils/Withdrawable3.sol";
  *   then trades involving the reserve will be disabled.
  */
 
-contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
+contract SanityRatesGasPrice is IKyberSanity, Withdrawable, Utils {
     struct SanityData {
         uint128 tokenRate;
         uint128 reasonableDiffInBps;
@@ -31,7 +31,7 @@ contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
 
     event SanityMaxGasPriceSet(uint256 maxGasPrice);
 
-    constructor(address _admin, uint256 _maxGasPriceWei) public Withdrawable3(_admin) {
+    constructor(address _admin, uint256 _maxGasPriceWei) public Withdrawable(_admin) {
         setGasPrice(_maxGasPriceWei);
     }
 
