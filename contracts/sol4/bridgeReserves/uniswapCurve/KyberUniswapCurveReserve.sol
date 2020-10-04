@@ -453,6 +453,8 @@ contract KyberUniswapCurveReserve is KyberReserveInterface, Withdrawable, Utils3
         CurveDefiInterface curve = CurveDefiInterface(curveDefiAddress[src]);
         if (curve != curveDefiAddress[dest]) return 0;
         destAmount = curve.get_dy(tokenIndex[src], tokenIndex[dest], srcQty);
+        // apply 1 bps if using Curve since Curve has a small rounding error
+        destAmount = destAmount * 9999 / 10000;
     }
 
     function isValidTokens(ERC20 src, ERC20 dest) internal view returns (bool) {
