@@ -5,8 +5,20 @@ import "../fprConversionRate/ConversionRateEnhancedSteps.sol";
 
 contract MockEnhancedStepFunctions is ConversionRateEnhancedSteps {
 
-    function MockEnhancedStepFunctions(address admin) public ConversionRateEnhancedSteps(admin) {
+    function MockEnhancedStepFunctions(address admin) public ConversionRateEnhancedSteps(admin) {}
 
+    function getInitImbalance(ERC20 token) public view returns(int totalImbalance) {
+        // check if trade is enabled
+        if (!tokenData[token].enabled) return 0;
+        // token control info not set
+        if (tokenControlInfo[token].minimalRecordResolution == 0) return 0;
+
+        // get rate update block
+        bytes32 compactData = tokenRatesCompactData[tokenData[token].compactDataArrayIndex];
+
+        uint updateRateBlock = getLast4Bytes(compactData);
+        // check imbalance
+        (totalImbalance, ) = getImbalance(token, updateRateBlock, block.number);
     }
 
     function mockGetMaxTotalImbalance(ERC20 token) public view returns(uint) {
@@ -14,7 +26,8 @@ contract MockEnhancedStepFunctions is ConversionRateEnhancedSteps {
     }
 
     function getUpdateRateBlockFromCompact (ERC20 token)
-        public view returns(uint updateRateBlock)
+        public view
+        returns(uint updateRateBlock)
     {
         // get rate update block
         bytes32 compactData = tokenRatesCompactData[tokenData[token].compactDataArrayIndex];
