@@ -3,14 +3,14 @@ pragma solidity 0.6.6;
 import "../IKyberReserve.sol";
 
 interface IPricing {
-    function getRate(IERC20 token, uint currentBlockNumber, bool buy, uint qty)
+    function getRate(IERC20Ext token, uint currentBlockNumber, bool buy, uint qty)
         external view returns(uint);
 }
 
 contract ReserveGasProfiler {
     function profilePricingRate(
         IPricing pricing,
-        IERC20 token,
+        IERC20Ext token,
         bool buy,
         uint256 srcQty
     ) external view returns (uint256) {
@@ -21,8 +21,8 @@ contract ReserveGasProfiler {
 
     function profileReserveRate(
         IKyberReserve reserve,
-        IERC20 src,
-        IERC20 dest,
+        IERC20Ext src,
+        IERC20Ext dest,
         uint256 srcQty
     ) external view returns (uint256) {
         uint256 gasAmt = gasleft();

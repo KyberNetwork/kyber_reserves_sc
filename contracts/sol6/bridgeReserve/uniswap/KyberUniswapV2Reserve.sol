@@ -5,13 +5,12 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
 import "../../IKyberReserve.sol";
-import "../../IERC20.sol";
-import "../../utils/Withdrawable3.sol";
-import "../../utils/Utils5.sol";
-import "../../utils/zeppelin/SafeERC20.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
-contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
-    using SafeERC20 for IERC20;
+contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable, Utils {
+    using SafeERC20 for IERC20Ext;
 
     uint256 public constant DEFAULT_FEE_BPS = 0;
     uint256 public constant DEADLINE = 2**255;
@@ -26,22 +25,22 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
     IUniswapV2Factory public immutable uniswapFactory;
     address public immutable weth;
 
-    mapping(IERC20 => bool) public tokenListed;
-    mapping(IERC20 => address[][]) public e2tSwapPaths;
-    mapping(IERC20 => address[][]) public t2eSwapPaths;
+    mapping(IERC20Ext => bool) public tokenListed;
+    mapping(IERC20Ext => address[][]) public e2tSwapPaths;
+    mapping(IERC20Ext => address[][]) public t2eSwapPaths;
 
     event TradeExecute(
         address indexed sender,
-        IERC20 indexed srcToken,
+        IERC20Ext indexed srcToken,
         uint256 srcAmount,
-        IERC20 indexed destToken,
+        IERC20Ext indexed destToken,
         uint256 destAmount,
         address destAddress
     );
 
-    event TokenListed(IERC20 indexed token, bool add);
+    event TokenListed(IERC20Ext indexed token, bool add);
 
-    event TokenPathAdded(IERC20 indexed token, address[] path, bool isEthToToken, bool add);
+    event TokenPathAdded(IERC20Ext indexed token, address[] path, bool isEthToToken, bool add);
 
     event TradeEnabled(bool enable);
 
@@ -56,7 +55,7 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
         address _weth,
         address _admin,
         address _kyberNetwork
-    ) public Withdrawable3(_admin) {
+    ) public Withdrawable(_admin) {
         require(address(_uniswapRouter) != address(0), "uniswapRouter 0");
         require(_weth != address(0), "weth 0");
         require(_kyberNetwork != address(0), "kyberNetwork 0");
@@ -75,9 +74,9 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
       conversionRate: expected conversion rate should be >= this value.
      */
     function trade(
-        IERC20 srcToken,
+        IERC20Ext srcToken,
         uint256 srcAmount,
-        IERC20 destToken,
+        IERC20Ext destToken,
         address payable destAddress,
         uint256 conversionRate,
         bool /* validate */
@@ -166,11 +165,11 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
     }
 
     function listToken(
-        IERC20 token,
+        IERC20Ext token,
         bool addDefaultPaths,
         bool validate
     ) external onlyOperator {
-        require(token != IERC20(0), "token 0");
+        require(token != IERC20Ext(0), "token 0");
 
         require(!tokenListed[token], "token is listed");
         tokenListed[token] = true;
@@ -192,12 +191,12 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
 
         token.safeApprove(address(uniswapRouter), MAX_ALLOWANCE);
 
-        setDecimals(token);
+        getSetDecimals(token);
 
         emit TokenListed(token, true);
     }
 
-    function delistToken(IERC20 token) external onlyOperator {
+    function delistToken(IERC20Ext token) external onlyOperator {
         require(tokenListed[token], "token is not listed");
         delete tokenListed[token];
         // clear all paths data
@@ -209,7 +208,7 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
     }
 
     function removePath(
-        IERC20 token,
+        IERC20Ext token,
         bool isEthTotoken,
         uint256 index
     ) external onlyOperator {
@@ -243,8 +242,8 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
      *   @dev called by kybernetwork to get settlement rate
      */
     function getConversionRate(
-        IERC20 src,
-        IERC20 dest,
+        IERC20Ext src,
+        IERC20Ext dest,
         uint256 srcQty,
         uint256 /* blockNumber */
     ) external override view returns (uint256) {
@@ -257,7 +256,7 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
     }
 
     function addPath(
-        IERC20 token,
+        IERC20Ext token,
         address[] memory path,
         bool isEthToToken
     ) public onlyOperator {
@@ -289,14 +288,14 @@ contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable3, Utils5 {
         return (amount * (BPS - feeBps)) / BPS;
     }
 
-    function isValidTokens(IERC20 src, IERC20 dest) internal view returns (bool) {
+    function isValidTokens(IERC20Ext src, IERC20Ext dest) internal view returns (bool) {
         return ((src == ETH_TOKEN_ADDRESS && tokenListed[dest]) ||
             (tokenListed[src] && dest == ETH_TOKEN_ADDRESS));
     }
 
     function calcUniswapConversion(
-        IERC20 src,
-        IERC20 dest,
+        IERC20Ext src,
+        IERC20Ext dest,
         uint256 srcQty
     ) internal view returns (uint256 rate, address[] memory path) {
         uint256 destQty = 0;

@@ -1,8 +1,8 @@
 pragma solidity 0.6.6;
 
 import "./IKyberSanity.sol";
-import "./utils/Utils5.sol";
-import "./utils/Withdrawable3.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
 
 /**
  *   @title SanityRatesGasPrice contract
@@ -20,7 +20,7 @@ import "./utils/Withdrawable3.sol";
  *   then trades involving the reserve will be disabled.
  */
 
-contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
+contract SanityRatesGasPrice is IKyberSanity, Withdrawable, Utils {
     struct SanityData {
         uint128 tokenRate;
         uint128 reasonableDiffInBps;
@@ -31,13 +31,13 @@ contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
 
     event SanityMaxGasPriceSet(uint256 maxGasPrice);
 
-    constructor(address _admin, uint256 _maxGasPriceWei) public Withdrawable3(_admin) {
+    constructor(address _admin, uint256 _maxGasPriceWei) public Withdrawable(_admin) {
         setGasPrice(_maxGasPriceWei);
     }
 
     /// @dev set reasonableDiffInBps of a token to MAX_RATE to avoid handling the
     ///      price feed for this token
-    function setReasonableDiff(IERC20[] calldata srcs, uint256[] calldata diff)
+    function setReasonableDiff(IERC20Ext[] calldata srcs, uint256[] calldata diff)
         external
         onlyAdmin
     {
@@ -56,7 +56,7 @@ contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
         emit SanityMaxGasPriceSet(maxGasPriceWei);
     }
 
-    function setSanityRates(IERC20[] calldata srcs, uint256[] calldata rates)
+    function setSanityRates(IERC20Ext[] calldata srcs, uint256[] calldata rates)
         external
         onlyOperator
     {
@@ -68,7 +68,9 @@ contract SanityRatesGasPrice is IKyberSanity, Withdrawable3, Utils5 {
         }
     }
 
-    function getSanityRate(IERC20 src, IERC20 dest) external override view returns (uint256 rate) {
+    function getSanityRate(IERC20Ext src, IERC20Ext dest)
+        external override view returns (uint256 rate)
+    {
         SanityData memory data;
 
         if (src != ETH_TOKEN_ADDRESS && dest != ETH_TOKEN_ADDRESS) return 0;
