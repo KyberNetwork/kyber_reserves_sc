@@ -2,20 +2,19 @@
 pragma solidity 0.6.6;
 
 import "./IKyberReserve.sol";
-import "./IERC20.sol";
 import "./IWeth.sol";
 import "./IKyberSanity.sol";
 import "./IConversionRates.sol";
-import "./utils/Utils5.sol";
-import "./utils/Withdrawable3.sol";
-import "./utils/zeppelin/SafeERC20.sol";
+import "@kyber.network/utils-sc/contracts/Utils.sol";
+import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 /// @title KyberFprReserve version 2
 /// Allow Reserve to work work with either weth or eth.
 /// for working with weth should specify external address to hold weth.
 /// Allow Reserve to set maxGasPriceWei to trade with
-contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
-    using SafeERC20 for IERC20;
+contract KyberFprReserveV2 is IKyberReserve, Utils, Withdrawable {
+    using SafeERC20 for IERC20Ext;
     using SafeMath for uint256;
 
     mapping(bytes32 => bool) public approvedWithdrawAddresses; // sha3(token,address)=>bool
@@ -34,21 +33,21 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     IKyberSanity public sanityRatesContract;
     IWeth public weth;
 
-    event DepositToken(IERC20 indexed token, uint256 amount);
+    event DepositToken(IERC20Ext indexed token, uint256 amount);
     event TradeExecute(
         address indexed origin,
-        IERC20 indexed src,
+        IERC20Ext indexed src,
         uint256 srcAmount,
-        IERC20 indexed destToken,
+        IERC20Ext indexed destToken,
         uint256 destAmount,
         address payable destAddress
     );
     event TradeEnabled(bool enable);
     event MaxGasPriceUpdated(uint128 newMaxGasPrice);
     event DoRateValidationUpdated(bool doRateValidation);
-    event WithdrawAddressApproved(IERC20 indexed token, address indexed addr, bool approve);
-    event NewTokenWallet(IERC20 indexed token, address indexed wallet);
-    event WithdrawFunds(IERC20 indexed token, uint256 amount, address indexed destination);
+    event WithdrawAddressApproved(IERC20Ext indexed token, address indexed addr, bool approve);
+    event NewTokenWallet(IERC20Ext indexed token, address indexed wallet);
+    event WithdrawFunds(IERC20Ext indexed token, uint256 amount, address indexed destination);
     event SetKyberNetworkAddress(address indexed network);
     event SetConversionRateAddress(IConversionRates indexed rate);
     event SetWethAddress(IWeth indexed weth);
@@ -61,7 +60,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
         uint128 _maxGasPriceWei,
         bool _doRateValidation,
         address _admin
-    ) public Withdrawable3(_admin) {
+    ) public Withdrawable(_admin) {
         require(_kyberNetwork != address(0), "kyberNetwork 0");
         require(_ratesContract != IConversionRates(0), "ratesContract 0");
         require(_weth != IWeth(0), "weth 0");
@@ -80,9 +79,9 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     }
 
     function trade(
-        IERC20 srcToken,
+        IERC20Ext srcToken,
         uint256 srcAmount,
-        IERC20 destToken,
+        IERC20Ext destToken,
         address payable destAddress,
         uint256 conversionRate,
         bool /* validate */
@@ -125,21 +124,21 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     }
 
     function approveWithdrawAddress(
-        IERC20 token,
+        IERC20Ext token,
         address addr,
         bool approve
     ) external onlyAdmin {
         approvedWithdrawAddresses[keccak256(abi.encodePacked(address(token), addr))] = approve;
-        setDecimals(token);
+        getSetDecimals(token);
         emit WithdrawAddressApproved(token, addr, approve);
     }
 
     /// @dev allow set tokenWallet[token] back to 0x0 address
     /// @dev in case of using weth from external wallet, must call set token wallet for weth
     ///      tokenWallet for weth must be different from this reserve address
-    function setTokenWallet(IERC20 token, address wallet) external onlyAdmin {
+    function setTokenWallet(IERC20Ext token, address wallet) external onlyAdmin {
         tokenWallet[address(token)] = wallet;
-        setDecimals(token);
+        getSetDecimals(token);
         emit NewTokenWallet(token, wallet);
     }
 
@@ -149,7 +148,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     /// @param amount amount to withdraw
     /// @param destination address to transfer fund to
     function withdraw(
-        IERC20 token,
+        IERC20Ext token,
         uint256 amount,
         address destination
     ) external onlyOperator {
@@ -199,8 +198,8 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     }
 
     function getConversionRate(
-        IERC20 src,
-        IERC20 dest,
+        IERC20Ext src,
+        IERC20Ext dest,
         uint256 srcQty,
         uint256 blockNumber
     ) external override view returns (uint256) {
@@ -209,7 +208,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
         if (tx.gasprice > uint256(data.maxGasPriceWei)) return 0;
         if (srcQty == 0) return 0;
 
-        IERC20 token;
+        IERC20Ext token;
         bool isBuy;
 
         if (ETH_TOKEN_ADDRESS == src) {
@@ -240,7 +239,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
         return rate;
     }
 
-    function isAddressApprovedForWithdrawal(IERC20 token, address addr)
+    function isAddressApprovedForWithdrawal(IERC20Ext token, address addr)
         external
         view
         returns (bool)
@@ -264,9 +263,9 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     ///      if using weth, call getBalance(eth) will return weth balance
     ///      if using wallet for token, will return min of balance and allowance
     /// @param token token to get available balance that reserve can use
-    function getBalance(IERC20 token) public view returns (uint256) {
+    function getBalance(IERC20Ext token) public view returns (uint256) {
         address wallet = getTokenWallet(token);
-        IERC20 usingToken;
+        IERC20Ext usingToken;
 
         if (token == ETH_TOKEN_ADDRESS) {
             if (wallet == address(this)) {
@@ -292,7 +291,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     /// @dev return wallet that holds the token
     ///      if token is ETH, check tokenWallet of WETH instead
     ///      if wallet is 0x0, consider as this reserve address
-    function getTokenWallet(IERC20 token) public view returns (address wallet) {
+    function getTokenWallet(IERC20Ext token) public view returns (address wallet) {
         wallet = (token == ETH_TOKEN_ADDRESS)
             ? tokenWallet[address(weth)]
             : tokenWallet[address(token)];
@@ -308,9 +307,9 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
     /// @param destAddress Destination address to send tokens to
     /// @param validateRate re-validate rate or not
     function doTrade(
-        IERC20 srcToken,
+        IERC20Ext srcToken,
         uint256 srcAmount,
-        IERC20 destToken,
+        IERC20Ext destToken,
         address payable destAddress,
         uint256 conversionRate,
         bool validateRate
@@ -357,7 +356,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
             // if reserve is using weth, convert eth to weth and transfer weth to its' tokenWallet
             if (srcTokenWallet != address(this)) {
                 weth.deposit{value: msg.value}();
-                IERC20(weth).safeTransfer(srcTokenWallet, msg.value);
+                IERC20Ext(weth).safeTransfer(srcTokenWallet, msg.value);
             }
             // transfer dest token from tokenWallet to destAddress
             if (destTokenWallet == address(this)) {
@@ -378,7 +377,7 @@ contract KyberFprReserveV2 is IKyberReserve, Utils5, Withdrawable3 {
             // if reserve is using weth, reserve needs to collect weth from tokenWallet,
             // then convert it to eth
             if (destTokenWallet != address(this)) {
-                IERC20(weth).safeTransferFrom(destTokenWallet, address(this), destAmount);
+                IERC20Ext(weth).safeTransferFrom(destTokenWallet, address(this), destAmount);
                 weth.withdraw(destAmount);
             }
             // transfer eth to destAddress

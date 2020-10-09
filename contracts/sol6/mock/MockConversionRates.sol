@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import "../IERC20.sol";
+import "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
 
 
 contract MockConversionRates {
@@ -10,13 +10,13 @@ contract MockConversionRates {
     mapping (address => uint256) public imbalances;
     address public reserve;
 
-    function setBaseRates(IERC20 token, uint256 buyRate, uint256 sellRate) external {
+    function setBaseRates(IERC20Ext token, uint256 buyRate, uint256 sellRate) external {
         buyRates[address(token)] = buyRate;
         sellRates[address(token)] = sellRate;
     }
 
     function recordImbalance(
-        IERC20 token,
+        IERC20Ext token,
         int buyAmount,
         uint256 rateUpdateBlock,
         uint256 currentBlock
@@ -27,7 +27,7 @@ contract MockConversionRates {
     }
 
     function getRate(
-        IERC20 token,
+        IERC20Ext token,
         uint256 currentBlockNumber,
         bool buy,
         uint256 qty
@@ -40,7 +40,7 @@ contract MockConversionRates {
         return sellRates[address(token)];
     }
 
-    function getInitImbalance(IERC20 token) external view returns(uint256) {
+    function getInitImbalance(IERC20Ext token) external view returns(uint256) {
         return imbalances[address(token)];
     }
 }
