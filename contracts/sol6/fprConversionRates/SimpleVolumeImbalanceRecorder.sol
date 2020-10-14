@@ -3,7 +3,7 @@ pragma solidity 0.6.6;
 import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
 
-/// @dev this is another verion of SignedSafeMath(OpenZeppelin) for int64
+/// @dev this is another verison of SignedSafeMath(OpenZeppelin) for int64
 library SafeInt64 {
     function add(int64 a, int64 b) internal pure returns (int64) {
         int64 c = a + b;
