@@ -771,6 +771,54 @@ contract('QtyStepConversionRates', function (accounts) {
     await expectRevert(convRatesInst.mockAddBps(legalRate, illegalBpsMaxSide), 'bps too high');
   });
 
+  it('test setBaseRate with empty CompactData', async () => {
+    let currentBlock = await Helper.getCurrentBlock();
+    // revert if tokens are from different compact data slot
+    await expectRevert(
+      convRatesInst.setBaseRateWithEmptyCompactData(tokens, baseBuy, baseSell, currentBlock, {
+        from: operator
+      }),
+      'CompactData from different slot'
+    );
+
+    // test revert if inject unlisted token
+    let inputToken = [];
+    let inputBaseBuy = [];
+    let inputBaseSell = [];
+    for (let index = 0; index < 14; index++) {
+      inputToken.push(tokens[index]);
+      inputBaseBuy.push(baseBuy[index]);
+      inputBaseSell.push(baseSell[index]);
+    }
+    let unlistedToken = await TestToken.new('test', 'tst', 18);
+    inputToken.push(unlistedToken.address);
+    await expectRevert(
+      convRatesInst.setBaseRateWithEmptyCompactData(inputToken, inputBaseBuy, inputBaseSell, currentBlock, {
+        from: operator
+      }),
+      'unlisted token'
+    );
+    inputToken.pop();
+
+    await convRatesInst.setBaseRateWithEmptyCompactData(inputToken, inputBaseBuy, inputBaseSell, currentBlock, {
+      from: operator
+    });
+
+    // assert compact data is fill with zero
+    for (i = 0; i < 14; ++i) {
+      let arrIndex = Math.floor(i / 14);
+      let fieldIndex = i % 14;
+      let data = await convRatesInst.getCompactData(tokens[i]);
+      Helper.assertEqual(data.arrayIndex, arrIndex, 'wrong array ' + i);
+      Helper.assertEqual(data.fieldOffset, fieldIndex, 'wrong field index ' + i);
+      Helper.assertEqual(data.buyRateUpdate, 0, 'wrong buy: ' + i);
+      Helper.assertEqual(data.sellRateUpdate, 0, 'wrong sell: ' + i);
+    }
+
+    let rateUpdateBlock = await convRatesInst.getRateUpdateBlock(tokens[0]);
+    Helper.assertEqual(rateUpdateBlock, currentBlock, "unexpected rateUpdateBlock");
+  });
+
   describe('benchmark gas', accounts => {
     let token;
     let tokenDecimals = new BN(6);
@@ -834,14 +882,16 @@ contract('QtyStepConversionRates', function (accounts) {
       await rateContract.setQtyStepFunction(token.address, qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       });
-      await rateContract.setImbalanceStepFunction(
-        token.address,
-        imbalanceBuyStepX,
-        imbalanceBuyStepY,
-        imbalanceSellStepX,
-        imbalanceSellStepY,
-        {from: operator}
-      );
+
+      // uncomment this if you want to run this test with old conversion rate version
+      // await rateContract.setImbalanceStepFunction(
+      //   token.address,
+      //   imbalanceBuyStepX,
+      //   imbalanceBuyStepY,
+      //   imbalanceSellStepX,
+      //   imbalanceSellStepY,
+      //   {from: operator}
+      // );
 
       compactBuyArr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       let buys = [Helper.bytesToHex(compactBuyArr)];

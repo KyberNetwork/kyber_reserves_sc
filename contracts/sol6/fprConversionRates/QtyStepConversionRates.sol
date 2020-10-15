@@ -141,22 +141,6 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         }
     }
 
-    function setImbalanceStepFunction(
-        IERC20Ext token,
-        int256[] calldata xBuy,
-        int256[] calldata yBuy,
-        int256[] calldata xSell,
-        int256[] calldata ySell
-    ) external onlyOperator {
-        // require(xBuy.length == yBuy.length);
-        // require(xSell.length == ySell.length);
-        // require(xBuy.length <= MAX_STEPS_IN_FUNCTION);
-        // require(xSell.length <= MAX_STEPS_IN_FUNCTION);
-        // require(tokenData[token].listed);
-        // tokenData[token].buyRateImbalanceStepFunction = StepFunction(xBuy, yBuy);
-        // tokenData[token].sellRateImbalanceStepFunction = StepFunction(xSell, ySell);
-    }
-
     function setValidRateDurationInBlocks(uint256 duration) external onlyAdmin {
         validRateDurationInBlocks = duration;
     }

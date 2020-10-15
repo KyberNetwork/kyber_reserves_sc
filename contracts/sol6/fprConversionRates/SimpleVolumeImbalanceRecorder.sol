@@ -109,7 +109,10 @@ contract SimpleVolumeImbalanceRecorder is Withdrawable {
             );
         } else {
             currentBlockData.lastRateUpdateBlock = uint64(rateUpdateBlock);
-            currentBlockData.totalBuyUnitsImbalance = recordedBuyAmount;
+            // because we don't keep track of imbalance from rateUpdateBlock to currentBlock
+            // we need to reset totalImbalance to the blockImbalance
+            // this will also cover the case when rateUpdating transaction is in middle of block
+            currentBlockData.totalBuyUnitsImbalance = currentBlockData.lastBlockBuyUnitsImbalance;
         }
         tokenImbalanceData[token] = currentBlockData;
     }
