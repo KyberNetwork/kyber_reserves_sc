@@ -154,7 +154,7 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         tokenData[token].enabled = true;
     }
 
-    function disableTokenTrade(IERC20Ext token) external onlyAlerter {
+    function disableTokenTrade(IERC20Ext token) external onlyOperator {
         require(tokenData[token].listed, "unlisted token");
         tokenData[token].enabled = false;
     }

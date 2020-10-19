@@ -616,11 +616,11 @@ contract('QtyStepConversionRates', function (accounts) {
 
   it('should verify disable token trade reverted if token not listed.', async function () {
     let someToken = await TestToken.new('testing', 'tst9', 15);
-    await expectRevert(convRatesInst.disableTokenTrade(someToken.address, {from: alerter}), 'unlisted token');
+    await expectRevert(convRatesInst.disableTokenTrade(someToken.address, {from: operator}), 'unlisted token');
 
     //add token and see enable success
     await convRatesInst.addToken(someToken.address);
-    await convRatesInst.disableTokenTrade(someToken.address, {from: alerter});
+    await convRatesInst.disableTokenTrade(someToken.address, {from: operator});
   });
 
   it('should verify get rate returns 0 if token disabled.', async function () {
@@ -630,7 +630,7 @@ contract('QtyStepConversionRates', function (accounts) {
     let rate = await convRatesInst.getRate(tokens[index], currentBlock, false, qty);
     Helper.assertGreater(rate, 0, 'unexpected rate');
 
-    await convRatesInst.disableTokenTrade(tokens[index], {from: alerter});
+    await convRatesInst.disableTokenTrade(tokens[index], {from: operator});
     rate = await convRatesInst.getRate(tokens[index], currentBlock, false, qty);
     Helper.assertEqual(rate, 0, 'unexpected rate');
 
@@ -701,6 +701,20 @@ contract('QtyStepConversionRates', function (accounts) {
 
     //now the same from reserve address
     await convRatesInst.recordImbalance(tokens[5], 30, currentBlock, currentBlock, {from: reserveAddress});
+  });
+
+  it('should record imbalance when rateUpdateBlock = 0', async () => {
+    let token = tokens[5];
+    let lastSetBlock = await convRatesInst.getUpdateRateBlockFromCompact(token);
+    currentBlock = await Helper.getCurrentBlock();
+    let currentImbalance = await convRatesInst.mockGetImbalance(token, lastSetBlock, currentBlock);
+    await convRatesInst.recordImbalance(token, 30, new BN(0), currentBlock, {from: reserveAddress});
+    let afterImbalance = await convRatesInst.mockGetImbalance(token, lastSetBlock, currentBlock);
+    Helper.assertEqual(
+      afterImbalance.totalImbalance,
+      currentImbalance.totalImbalance.add(new BN(30 / minimalRecordResolution)),
+      'unexpect afterImbalance'
+    );
   });
 
   it('should verify set step functions for qty reverted when more them max steps (10).', async function () {
@@ -816,7 +830,7 @@ contract('QtyStepConversionRates', function (accounts) {
     }
 
     let rateUpdateBlock = await convRatesInst.getRateUpdateBlock(tokens[0]);
-    Helper.assertEqual(rateUpdateBlock, currentBlock, "unexpected rateUpdateBlock");
+    Helper.assertEqual(rateUpdateBlock, currentBlock, 'unexpected rateUpdateBlock');
   });
 
   describe('benchmark gas', accounts => {
