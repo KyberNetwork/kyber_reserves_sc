@@ -7,7 +7,6 @@ import "./IKyberSanity.sol";
 import "./IConversionRates.sol";
 import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 /// @title KyberFprReserve version 2
 /// Allow Reserve to work work with either weth or eth.
