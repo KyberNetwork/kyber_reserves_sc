@@ -7,7 +7,6 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "../../IKyberReserve.sol";
 import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 contract KyberUniswapV2Reserve is IKyberReserve, Withdrawable, Utils {
     using SafeERC20 for IERC20Ext;
