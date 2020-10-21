@@ -70,26 +70,3 @@ contracts/sol5/bridges/eth2dai/Eth2DaiReserve.sol
 contracts/sol5/utils/PermissionGroups2.sol
 contracts/sol5/utils/Utils4.sol
 contracts/sol5/utils/Withdrawable2.sol
-
-## SOLIDITY 6 ##
-
-## main
-contracts/sol6/IERC20.sol
-contracts/sol6/IKyberReserve.sol
-contracts/sol6/IKyberSanity.sol
-contracts/sol6/SanityRatesGasPrice.sol
-
-## uniswap
-contracts/sol6/bridgeReserve/uniswap/KyberUniswapV2Reserve.sol
-
-## utils
-contracts/sol6/utils/PermissionGroups3.sol
-contracts/sol6/utils/Withdrawable3.sol
-contracts/sol6/utils/Utils5.sol
-contracts/sol6/utils/zeppelin/Address.sol
-contracts/sol6/utils/zeppelin/ReentrancyGuard.sol
-contracts/sol6/utils/zeppelin/SafeERC20.sol
-contracts/sol6/utils/zeppelin/SafeMath.sol
-
-## wrappers
-contracts/sol6/wrappers/KyberRateHelper.sol
