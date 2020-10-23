@@ -1,4 +1,4 @@
-usePlugin("@nomiclabs/buidler-ethers");
+require("@nomiclabs/hardhat-ethers");
 const fs = require('fs');
 const path = require('path');
 const configPath = path.join(__dirname, './fpr_input.json');
