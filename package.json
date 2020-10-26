@@ -10,7 +10,7 @@
     "test": "./tst.sh",
     "t": "./tst.sh",
     "compile": "./cmp.sh",
-    "c": "./cmp.sh",
+    "c": "printf 'yes' | ./cmp.sh",
     "coverage4": "./coverage.sh -v sol4",
     "coverage5": "./coverage.sh -v sol5",
     "coverage6": "./coverage.sh -v sol6",
