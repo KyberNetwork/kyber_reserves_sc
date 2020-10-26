@@ -1,5 +1,5 @@
 const WrapperBase = artifacts.require("WrapperBase.sol");
-const PermissionGroups = artifacts.require("PermissionGroups.sol");
+const PermissionGroups = artifacts.require("contracts/sol4/PermissionGroups.sol:PermissionGroups");
 
 const Helper = require("../helper.js");
 const BN = web3.utils.BN;

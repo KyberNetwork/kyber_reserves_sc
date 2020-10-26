@@ -1250,11 +1250,10 @@ contract('kyberReserve for Liquidity', function(accounts) {
                             let randMaxCapSellInEth = 11
                             let randFeePercent = feePercent
 
-                            let exp = Helper.exp(e, randR * randE0)
+                            let exp = Helper.exp(e, randR * randE0);
                             let randPmin = randP0/exp;
-                            let randPmax = randP0 / (1 - randR * randP0 * randT0);
+                            let randPmax = Math.abs(randP0 / (1 - randR * randP0 * randT0)) + 1;
     
-                            let randDeltaEInFp = new BN(randDeltaE).mul(formulaPrecision);
                             let randEInFp = new BN(randE0*baseNumber).mul(randFormulaPrecision).div(new BN(baseNumber));
                             let randRInFp = new BN(randR*baseNumber).mul(randFormulaPrecision).div(new BN(baseNumber));
                             let randPminInFp = new BN(randPmin*baseNumber).mul(randFormulaPrecision).div(new BN(baseNumber));
@@ -1266,7 +1265,7 @@ contract('kyberReserve for Liquidity', function(accounts) {
 
                             let randToken = await TestToken.new("test", "tst", randTokenDecimals);
                             liqConvRatesInst = await LiquidityConversionRates.new(admin, randToken.address);
-                            liqConvRatesInst.setReserveAddress(reserveAddress)
+                            liqConvRatesInst.setReserveAddress(reserveAddress);
 
                             await liqConvRatesInst.setLiquidityParams(
                                     randRInFp,
