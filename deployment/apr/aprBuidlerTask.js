@@ -10,8 +10,9 @@ let tokenAddress;
 let whitelistedAddresses;
 let reserveAdmin;
 let reserveOperators;
-let pricingOperator;
+let pricingAdmin;
 let outputFilename;
+const ethAddress = `0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee`;
 
 task("deployApr", "deploys an Automated Price Reserve")
   .addParam("networkAddress", "KyberNetwork contract address")
@@ -57,9 +58,9 @@ task("deployApr", "deploys an Automated Price Reserve")
     console.log("set reserve address in pricing");
     await lcr.setReserveAddress(kyberReserve.address);
 
-    // transfer admin rights to pricing operator
-    console.log(`transfer admin rights to ${pricingOperator}`)
-    await lcr.transferAdminQuickly(pricingOperator);
+    // transfer admin rights to pricing Admin
+    console.log(`transfer admin rights to ${pricingAdmin}`)
+    await lcr.transferAdminQuickly(pricingAdmin);
     console.log('APR setup completed!');
     process.exit(0);
 });
@@ -68,16 +69,22 @@ function parseInput(jsonInput) {
   tokenAddress = jsonInput["tokenAddress"];
   whitelistedAddresses = jsonInput["whitelistedAddresses"];
   reserveAdmin = jsonInput["reserveAdmin"];
-  pricingOperator = jsonInput["pricingOperator"];
+  pricingAdmin = jsonInput["pricingAdmin"];
   reserveOperators = jsonInput["reserveOperators"];
   outputFilename = jsonInput["outputFilename"];
 };
-      
+ 
+//operator can withdraw both ETH and Token
 async function whitelistAddressesInReserve(kyberReserve) {
   console.log("whitelisting addresses...");
   for (let whitelistAddress of whitelistedAddresses) {
     await kyberReserve.approveWithdrawAddress(
       tokenAddress,
+      whitelistAddress,
+      true
+    );
+    await kyberReserve.approveWithdrawAddress(
+      ethAddress,
       whitelistAddress,
       true
     );
