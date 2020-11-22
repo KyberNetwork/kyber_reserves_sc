@@ -62,9 +62,7 @@ contract KyberRateQueryReserves is Utils {
 
         try reserve.sanityRatesContract() returns (IKyberSanity sanityContract) {
             sanityRateContract = sanityContract;
-        } catch {
-            revert("no sanityRate contract");
-        }
+        } catch {}
 
         try reserve.conversionRatesContract() returns (IConversionRates ratesContract) {
             conversionRateContract = ratesContract;
