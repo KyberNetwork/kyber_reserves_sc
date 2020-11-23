@@ -1,6 +1,5 @@
 pragma solidity 0.6.6;
 
-import "@kyber.network/utils-sc/contracts/Utils.sol";
 import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
 
 /// @dev this is another verison of SignedSafeMath(OpenZeppelin) for int64

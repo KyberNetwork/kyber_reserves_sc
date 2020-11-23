@@ -1,4 +1,5 @@
 const ConversionRates = artifacts.require('MockQtyStepConversionRates.sol');
+const ConversionRatesSol4 = artifacts.require('ConversionRates.sol');
 
 const KyberReserve = artifacts.require('KyberReserve.sol');
 const TestToken = artifacts.require('TestToken');
@@ -159,7 +160,7 @@ contract('QtyStepConversionRates', function (accounts) {
     let block = 0xffffffff1; //block number limited to size of int
     await expectRevert(
       convRatesInst.setCompactData(buys, sells, block, indices, {from: operator}),
-      'overflow blk number'
+      'overflow block number'
     );
     //see success on valid block
     let validBlock = 0xffffffff - 1;
@@ -169,6 +170,22 @@ contract('QtyStepConversionRates', function (accounts) {
   });
 
   it('should set step functions qty', async function () {
+    qtyBuyStepX[0] = new BN(2).pow(new BN(127));
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
+        from: operator
+      }),
+      'safeInt128: type cast overflow'
+    );
+    qtyBuyStepX[0] = new BN(-1).mul(new BN(2).pow(new BN(127)).add(new BN(1)));
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
+        from: operator
+      }),
+      'safeInt128: type cast overflow'
+    );
+    qtyBuyStepX[0] = 15;
+
     for (let i = 0; i < numTokens; ++i) {
       await convRatesInst.setQtyStepFunction(tokens[i], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
@@ -220,36 +237,49 @@ contract('QtyStepConversionRates', function (accounts) {
     tokenId = 1; //
 
     // x axis
-    let received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceXLength, 0); //get length
-    Helper.assertEqual(received, 1, "length don't match");
-
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceXLength, 0),
+      'imbalance steps not supported.'
+    );
     // now y axis
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceYLength, 0); //get length
-    Helper.assertEqual(received, 1, "length don't match");
-
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceYLength, 0),
+      'imbalance steps not supported.'
+    );
     //iterate x and y values and compare
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceParamX, 0); //get x value in cell 0
-    Helper.assertEqual(0, 0, 'mismatch for x value in cell 0');
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceParamY, 0); //get y value in cell 0
-    Helper.assertEqual(0, 0, 'mismatch for y value in cell 0');
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceParamX, 0),
+      'imbalance steps not supported.'
+    );
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_BuyRateStpImbalanceParamY, 0),
+      'imbalance steps not supported.'
+    );
   });
 
   it('should get imbalance sell step function', async function () {
     tokenId = 3; //
 
     // x axis
-    let received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceXLength, 0); //get length
-    Helper.assertEqual(received, 1, "length don't match");
-
+    // x axis
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceXLength, 0),
+      'imbalance steps not supported.'
+    );
     // now y axis
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceYLength, 0); //get length
-    Helper.assertEqual(received, 1, "length don't match");
-
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceYLength, 0),
+      'imbalance steps not supported.'
+    );
     //iterate x and y values and compare
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceParamX, 0); //get x value in cell i
-    Helper.assertEqual(received, 0, 'mismatch for x value in cell 0');
-    received = await convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceParamY, 0); //get y value in cell i
-    Helper.assertEqual(received, 0, 'mismatch for y value in cell 0');
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceParamX, 0),
+      'imbalance steps not supported.'
+    );
+    await expectRevert(
+      convRatesInst.getStepFunctionData(tokens[tokenId], comID_SellRateStpImbalanceParamY, 0),
+      'imbalance steps not supported.'
+    );
   });
 
   it('should get set function data reverts with illegal command ID.', async function () {
@@ -454,7 +484,7 @@ contract('QtyStepConversionRates', function (accounts) {
     //compact sell arr smaller (1)
     await expectRevert(
       convRatesInst.setCompactData(buys, sells, currentBlock, indices, {from: operator}),
-      'buy-sell: miss-match length'
+      'buy-sell: mismatch length'
     );
 
     //sells 2 buys 2. indices 3
@@ -463,7 +493,7 @@ contract('QtyStepConversionRates', function (accounts) {
 
     await expectRevert(
       convRatesInst.setCompactData(buys, sells, currentBlock, indices, {from: operator}),
-      'buy-indices: miss-match length'
+      'buy-indices: mismatch length'
     );
 
     //set indices to 2 and see success.
@@ -499,7 +529,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setBaseRate(tokens, baseBuy, baseSell, buys, sells, currentBlock, indices, {
         from: operator
       }),
-      'buy-sell: miss-match length'
+      'buy-sell: mismatch length'
     );
     //length 3 for sells and buys. indices 2
     buys = [Helper.bytesToHex(compactBuyArr1), Helper.bytesToHex(compactBuyArr2), Helper.bytesToHex([5])];
@@ -507,7 +537,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setBaseRate(tokens, baseBuy, baseSell, buys, sells, currentBlock, indices, {
         from: operator
       }),
-      'buy-indices: miss-match length'
+      'buy-indices: mismatch length'
     );
     buys.pop();
     sells.pop();
@@ -515,7 +545,7 @@ contract('QtyStepConversionRates', function (accounts) {
     baseBuy.push(Helper.bytesToHex([19]));
     await expectRevert(
       convRatesInst.setBaseRate(tokens, baseBuy, baseSell, buys, sells, currentBlock, indices, {from: operator}),
-      'tokens & baseBuy miss-match length'
+      'tokens-baseBuy: mismatch length'
     );
     baseBuy.pop();
 
@@ -523,12 +553,25 @@ contract('QtyStepConversionRates', function (accounts) {
     baseSell.push(Helper.bytesToHex([19]));
     await expectRevert(
       convRatesInst.setBaseRate(tokens, baseBuy, baseSell, buys, sells, currentBlock, indices, {from: operator}),
-      'tokens & baseSell miss-match length'
+      'tokens-baseSell: mismatch length'
     );
     baseSell.pop();
 
     currentBlock = await Helper.getCurrentBlock();
     await convRatesInst.setCompactData(buys, sells, currentBlock, indices, {from: operator});
+  });
+
+  it('should verify set base rate data reverted when base rate is overflow', async function () {
+    let tmp = baseBuy[0];
+    baseBuy[0] = new BN(2).pow(new BN(104));
+    currentBlock = await Helper.getCurrentBlock();
+    await expectRevert(
+      convRatesInst.setBaseRate(tokens, baseBuy, baseSell, buys, sells, currentBlock, indices, {
+        from: operator
+      }),
+      'safeUint104: type cast overflow'
+    );
+    baseBuy[0] = tmp;
   });
 
   it('should verify set base rate data reverted when setting to unlisted token.', async function () {
@@ -553,7 +596,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setQtyStepFunction(tokens[4], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       }),
-      'xBuy-yBuy not match length'
+      'xBuy-yBuy length mismatch'
     );
     //set size back and see set success
     qtyBuyStepX.pop();
@@ -564,7 +607,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setQtyStepFunction(tokens[4], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       }),
-      'xSell-ySell not match length'
+      'xSell-ySell length mismatch'
     );
     qtySellStepX.pop();
 
@@ -579,7 +622,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setQtyStepFunction(newToken.address, qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       }),
-      'not listed token'
+      'unlisted token'
     );
   });
 
@@ -591,7 +634,7 @@ contract('QtyStepConversionRates', function (accounts) {
       maxPerBlockImbalance,
       maxTotalImbalance
     );
-    await expectRevert(convRatesInst.enableTokenTrade(someToken.address), 'not listed token');
+    await expectRevert(convRatesInst.enableTokenTrade(someToken.address), 'unlisted token');
     //add token and see enable success
     await convRatesInst.addToken(someToken.address);
     await convRatesInst.enableTokenTrade(someToken.address);
@@ -717,13 +760,13 @@ contract('QtyStepConversionRates', function (accounts) {
     );
   });
 
-  it('should verify set step functions for qty reverted when more them max steps (10).', async function () {
+  it('should verify set step functions for qty reverted when more them max steps (13).', async function () {
     let index = 1;
 
-    qtyBuyStepX = [15, 30, 70, 100, 200, 500, 700, 900, 1100, 1500];
-    qtyBuyStepY = [8, 30, 70, 100, 120, 150, 170, 190, 210, 250];
-    qtySellStepX = [15, 30, 70, 100, 200, 500, 700, 900, 1100, 1500];
-    qtySellStepY = [8, 30, 70, 100, 120, 150, 170, 190, 210, 250];
+    qtyBuyStepX = [15, 30, 70, 100, 200, 500, 700, 900, 1100, 1300, 1500, 1700, 1900];
+    qtyBuyStepY = [8, 30, 70, 100, 120, 150, 170, 190, 210, 230, 250, 270, 290];
+    qtySellStepX = [15, 30, 70, 100, 200, 500, 700, 900, 1100, 1300, 1500, 1700, 1900];
+    qtySellStepY = [8, 30, 70, 100, 120, 150, 170, 190, 210, 230, 250, 270, 290];
 
     await convRatesInst.setQtyStepFunction(tokens[index], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
       from: operator
@@ -736,7 +779,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setQtyStepFunction(tokens[index], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       }),
-      'too big xBuy'
+      'xBuy too big'
     );
 
     //remove extra step and see success.
@@ -753,7 +796,7 @@ contract('QtyStepConversionRates', function (accounts) {
       convRatesInst.setQtyStepFunction(tokens[index], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
         from: operator
       }),
-      'too big xSell'
+      'xSell too big'
     );
   });
 
@@ -872,9 +915,12 @@ contract('QtyStepConversionRates', function (accounts) {
     let imbalanceBuyStepY = [0];
     let imbalanceSellStepX = [0];
     let imbalanceSellStepY = [0];
+    // if you want to run this test with sol4 verison, set isSol4 = true
+    let isSol4 = false;
 
     let baseBuyRate = new BN('354257815000000000000000');
     let baseSellRate = new BN('2808998681277');
+    let rateContract;
 
     before('init account', async () => {
       token = await TestToken.new('test', 'tst', tokenDecimals);
@@ -882,7 +928,12 @@ contract('QtyStepConversionRates', function (accounts) {
     });
 
     it('gas query rate', async () => {
-      let rateContract = await ConversionRates.new(admin);
+      if (isSol4) {
+        rateContract = await ConversionRatesSol4.new(admin);
+      } else {
+        rateContract = await ConversionRates.new(admin);
+      }
+
       await rateContract.addToken(token.address);
       await rateContract.setTokenControlInfo(
         token.address,
@@ -897,15 +948,16 @@ contract('QtyStepConversionRates', function (accounts) {
         from: operator
       });
 
-      // uncomment this if you want to run this test with old conversion rate version
-      // await rateContract.setImbalanceStepFunction(
-      //   token.address,
-      //   imbalanceBuyStepX,
-      //   imbalanceBuyStepY,
-      //   imbalanceSellStepX,
-      //   imbalanceSellStepY,
-      //   {from: operator}
-      // );
+      if (isSol4) {
+        await rateContract.setImbalanceStepFunction(
+          token.address,
+          imbalanceBuyStepX,
+          imbalanceBuyStepY,
+          imbalanceSellStepX,
+          imbalanceSellStepY,
+          {from: operator}
+        );
+      }
 
       compactBuyArr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       let buys = [Helper.bytesToHex(compactBuyArr)];

@@ -1,17 +1,18 @@
 pragma solidity 0.6.6;
 
+import "@kyber.network/utils-sc/contracts/Utils.sol";
+
 import "../IConversionRates.sol";
 import "./SimpleVolumeImbalanceRecorder.sol";
 
 contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecorder, Utils {
-    int256 internal constant MAX_IMBALANCE = 2**255 - 1;
-    uint256 internal constant POW_2_128 = 2**128;
     int256 internal constant MAX_BPS_ADJUSTMENT = 10**11; // 1B %
     int256 internal constant MIN_BPS_ADJUSTMENT = -100 * 100; // cannot go down by more than 100%
     // step data constant
-    uint256 internal constant MAX_STEPS_IN_FUNCTION = 10;
-    int128 internal constant MAX_STEP_VALUE = 2**127 - 1;
-    int128 internal constant MIN_STEP_VALUE = -1 * 2**127;
+    uint256 internal constant MAX_STEPS_IN_FUNCTION = 13;
+    int256 internal constant MAX_INT128 = 2**127 - 1;
+    int256 internal constant MIN_INT128 = -1 * 2**127;
+    uint256 internal constant MAX_UINT104 = 2**104 - 1;
     // compact data constant
     uint256 internal constant NUM_TOKENS_IN_COMPACT_DATA = 14;
 
@@ -20,15 +21,14 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         bool listed; // was added to reserve
         bool enabled; // whether trade is enabled
         // position in the compact data
-        // should we compress two things into 1 word
         uint16 compactDataArrayIndex;
         uint16 compactDataFieldIndex;
         // rate data. base and changes according to quantity and reserve balance.
         // generally speaking. Sell rate is 1 / buy rate i.e. the buy in the other direction.
 
         // rate <= max_rate = 10^25 < 2^104 (10^31)
-        uint104 baseBuyRate; // in PRECISION units. see KyberConstants
-        uint104 baseSellRate; // PRECISION units. without (sell / buy) spread it is 1 / baseBuyRate
+        uint104 baseBuyRate; // in PRECISION units
+        uint104 baseSellRate; // in PRECISION units
     }
 
     /// @dev data is compressed into 1 word
@@ -36,8 +36,8 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         int128 x;
         int128 y;
     }
-    /// @dev this is another verison for StepFunction[]
-    ///      but it seems that solitidy does not optimize this case
+    /// @dev this is a replacement for StepFunction[]
+    /// @dev if we use StepFunction[], solitidy compiler will not compress x, y into 1 word
     struct StepFunctions {
         uint256 length;
         mapping(uint256 => StepFunction) data;
@@ -52,10 +52,9 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
     }
 
     uint256 internal numCompactData = 0;
-    uint256 public numTokensInCurrentCompactData = 0;
     mapping(uint256 => TokenRatesCompactData) internal tokenRatesCompactData;
+    uint256 public numTokensInCurrentCompactData = 0;
 
-    // bytes32[] internal tokenRatesCompactData;
     uint256 public validRateDurationInBlocks = 10; // rates are valid for this amount of blocks
     IERC20Ext[] internal listedTokens;
     mapping(IERC20Ext => TokenData) internal tokenData;
@@ -125,19 +124,25 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         int256[] calldata xSell,
         int256[] calldata ySell
     ) external onlyOperator {
-        require(xBuy.length == yBuy.length, "xBuy-yBuy not match length");
-        require(xSell.length == ySell.length, "xSell-ySell not match length");
-        require(xBuy.length <= MAX_STEPS_IN_FUNCTION, "too big xBuy");
-        require(xSell.length <= MAX_STEPS_IN_FUNCTION, "too big xSell");
-        require(tokenData[token].listed, "not listed token");
+        require(xBuy.length == yBuy.length, "xBuy-yBuy length mismatch");
+        require(xSell.length == ySell.length, "xSell-ySell length mismatch");
+        require(xBuy.length <= MAX_STEPS_IN_FUNCTION, "xBuy too big");
+        require(xSell.length <= MAX_STEPS_IN_FUNCTION, "xSell too big");
+        require(tokenData[token].listed, "unlisted token");
 
         tokenBuyQtySteps[token].length = xBuy.length;
         for (uint256 i = 0; i < xBuy.length; i++) {
-            tokenBuyQtySteps[token].data[i] = StepFunction(int128(xBuy[i]), int128(yBuy[i]));
+            tokenBuyQtySteps[token].data[i] = StepFunction(
+                safeInt128(xBuy[i]),
+                safeInt128(yBuy[i])
+            );
         }
         tokenSellQtySteps[token].length = xSell.length;
         for (uint256 i = 0; i < xSell.length; i++) {
-            tokenSellQtySteps[token].data[i] = StepFunction(int128(xSell[i]), int128(ySell[i]));
+            tokenSellQtySteps[token].data[i] = StepFunction(
+                safeInt128(xSell[i]),
+                safeInt128(ySell[i])
+            );
         }
     }
 
@@ -146,7 +151,7 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
     }
 
     function enableTokenTrade(IERC20Ext token) external onlyAdmin {
-        require(tokenData[token].listed, "not listed token");
+        require(tokenData[token].listed, "unlisted token");
         require(
             tokenControlInfo[token].minimalRecordResolution != 0,
             "tokenControlInfo is required"
@@ -197,11 +202,10 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         }
 
         // check imbalance
-        (int256 totalImbalance, int256 blockImbalance) = getImbalanceInResolution(
-            token,
-            updateRateBlock,
-            currentBlockNumber
-        );
+        (
+            int256 totalImbalanceInResolution,
+            int256 blockImbalanceInResolution
+        ) = getImbalanceInResolution(token, updateRateBlock, currentBlockNumber);
 
         // calculate actual rate
         TokenControlInfo memory tkInfo = tokenControlInfo[token];
@@ -211,7 +215,7 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
             // compute token qty
             qty = getTokenQty(token, rate, qty);
             imbalanceQty = int256(qty) / int256(tkInfo.minimalRecordResolution);
-            totalImbalance += imbalanceQty;
+            totalImbalanceInResolution += imbalanceQty;
 
             // add qty overhead
             extraBps = executeStepFunction(tokenBuyQtySteps[token], int256(qty));
@@ -219,16 +223,22 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         } else {
             // compute token qty
             imbalanceQty = (-1 * int256(qty)) / int256(tkInfo.minimalRecordResolution);
-            totalImbalance += imbalanceQty;
+            totalImbalanceInResolution += imbalanceQty;
 
             // add qty overhead
             extraBps = executeStepFunction(tokenSellQtySteps[token], int256(qty));
             rate = addBps(rate, extraBps);
         }
 
-        if (abs(totalImbalance) >= uint256(tkInfo.maxTotalImbalanceInResolution)) return 0;
-        if (abs(blockImbalance + imbalanceQty) >= uint256(tkInfo.maxPerBlockImbalanceInResolution))
+        if (abs(totalImbalanceInResolution) >= uint256(tkInfo.maxTotalImbalanceInResolution)) {
             return 0;
+        }
+        if (
+            abs(blockImbalanceInResolution + imbalanceQty) >=
+            uint256(tkInfo.maxPerBlockImbalanceInResolution)
+        ) {
+            return 0;
+        }
 
         return rate;
     }
@@ -283,10 +293,17 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
             return tokenSellQtySteps[token].data[param].x;
         } else if (command == 7) {
             return tokenSellQtySteps[token].data[param].y;
-        } else if (command == 8 || command == 10 || command == 12 || command == 14) {
-            return 1;
-        } else if (command == 9 || command == 11 || command == 13 || command == 15) {
-            return 0;
+        } else if (
+            command == 8 ||
+            command == 10 ||
+            command == 12 ||
+            command == 14 ||
+            command == 9 ||
+            command == 11 ||
+            command == 13 ||
+            command == 15
+        ) {
+            revert("imbalance steps not supported.");
         }
         revert("invalid command");
     }
@@ -304,14 +321,14 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         uint256 blockNumber,
         uint256[] memory indices
     ) public onlyOperator {
-        require(tokens.length == baseBuy.length, "tokens & baseBuy miss-match length");
-        require(tokens.length == baseSell.length, "tokens & baseSell miss-match length");
+        require(tokens.length == baseBuy.length, "tokens-baseBuy: mismatch length");
+        require(tokens.length == baseSell.length, "tokens-baseSell: mismatch length");
 
         for (uint256 ind = 0; ind < tokens.length; ind++) {
             IERC20Ext token = tokens[ind];
             require(tokenData[token].listed, "unlisted token");
-            tokenData[token].baseBuyRate = uint104(baseBuy[ind]);
-            tokenData[token].baseSellRate = uint104(baseSell[ind]);
+            tokenData[token].baseBuyRate = safeUint104(baseBuy[ind]);
+            tokenData[token].baseSellRate = safeUint104(baseSell[ind]);
         }
 
         setCompactData(buy, sell, blockNumber, indices);
@@ -323,9 +340,9 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         uint256 blockNumber,
         uint256[] memory indices
     ) public onlyOperator {
-        require(buy.length == sell.length, "buy-sell: miss-match length");
-        require(indices.length == buy.length, "buy-indices: miss-match length");
-        require(blockNumber <= 0xFFFFFFFF, "overflow blk number");
+        require(buy.length == sell.length, "buy-sell: mismatch length");
+        require(indices.length == buy.length, "buy-indices: mismatch length");
+        require(blockNumber <= 0xFFFFFFFF, "overflow block number");
 
         for (uint256 i = 0; i < indices.length; i++) {
             require(indices[i] < numCompactData, "invalid indices");
@@ -339,8 +356,7 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
 
     function getRateUpdateBlock(IERC20Ext token) public view returns (uint256) {
         uint256 compactDataArrayIndex = tokenData[token].compactDataArrayIndex;
-        TokenRatesCompactData memory compactData = tokenRatesCompactData[compactDataArrayIndex];
-        return compactData.blockNumber;
+        return tokenRatesCompactData[compactDataArrayIndex].blockNumber;
     }
 
     function getRateWithoutImbalance(
@@ -399,5 +415,15 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
     function abs(int256 x) internal pure returns (uint256) {
         if (x < 0) return uint256(-1 * x);
         else return uint256(x);
+    }
+
+    function safeInt128(int256 a) internal pure returns (int128) {
+        require((a <= MAX_INT128) && (a >= MIN_INT128), "safeInt128: type cast overflow");
+        return int128(a);
+    }
+
+    function safeUint104(uint256 a) internal pure returns (uint104) {
+        require(a <= MAX_UINT104, "safeUint104: type cast overflow");
+        return uint104(a);
     }
 }
