@@ -7,9 +7,14 @@ module.exports = {
     total_accounts: 20,
   },
   skipFiles: [
-    'previousVersions',
-    'mock',
-    'zeppelin'
+    'sol4/mock/',
+    'sol4/bridgeReserves/dutchX/mock/',
+    'sol4/previousVersions/',
+    'sol5/bridges/bancor/mock/',
+    'sol5/bridges/eth2dai/mock/',
+    'sol5/utils/',
+    'sol6/bridgeReserve/uniswap/mock/',
+    'sol6/mock/'
   ],
   istanbulReporter: ['html', 'json']
 };
