@@ -11,6 +11,7 @@
     "t": "./tst.sh",
     "compile": "./cmp.sh",
     "c": "printf 'yes' | ./cmp.sh",
+    "coverage": "./coverage.sh",
     "coverage4": "./coverage.sh -v sol4",
     "coverage5": "./coverage.sh -v sol5",
     "coverage6": "./coverage.sh -v sol6",
@@ -54,6 +55,6 @@
     "hardhat": "2.0.0",
     "mv": "2.1.1",
     "prettier": "2.0.4",
-    "solidity-coverage": "0.7.10"
+    "solidity-coverage": "0.7.12"
   }
 }

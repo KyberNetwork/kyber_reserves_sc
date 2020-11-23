@@ -37,6 +37,7 @@ INFURA_API_KEY=********************************
 `yarn hardhat test --no-compile ./test/sol6/sanityRatesGasPrice.js`
 
 ## Coverage with `solidity-coverage`
-1. Run `yarn coverage4` for coverage on sol4 files
-2. Run `yarn coverage5` for coverage on sol5 files
-3. Run `yarn coverage6` for coverage on sol6 files
+1. Run `yarn coverage` for coverage on all sol files
+2. Run `yarn coverage4` for coverage on sol4 files
+3. Run `yarn coverage5` for coverage on sol5 files
+4. Run `yarn coverage6` for coverage on sol6 files

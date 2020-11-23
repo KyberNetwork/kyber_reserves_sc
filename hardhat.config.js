@@ -5,6 +5,7 @@ require('dotenv').config();
 require('./deployment/fpr/fprDeploy');
 require('./deployment/apr/aprDeploy');
 require('./deployment/apr/setLiquidity');
+require('solidity-coverage');
 
 module.exports = {
   defaultNetwork: "hardhat",
