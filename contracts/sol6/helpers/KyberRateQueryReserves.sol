@@ -72,11 +72,11 @@ contract KyberRateQueryReserves is Utils {
 
         for (uint256 i = 0 ; i < srcs.length ; i++) {
 
-            if (reserve.sanityRatesContract() != IKyberSanity(0x0)) {
-                sanityRates[i] = reserve.sanityRatesContract().getSanityRate(srcs[i], dests[i]);
+            if (sanityRateContract != IKyberSanity(0x0)) {
+                sanityRates[i] = sanityRateContract.getSanityRate(srcs[i], dests[i]);
             }
 
-            pricingRates[i] = reserve.conversionRatesContract().getRate(
+            pricingRates[i] = conversionRateContract.getRate(
                 srcs[i] == ETH_TOKEN_ADDRESS ? dests[i] : srcs[i],
                 block.number,
                 srcs[i] == ETH_TOKEN_ADDRESS ? true : false,
