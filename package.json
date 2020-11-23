@@ -2,7 +2,7 @@
   "name": "smart-contracts",
   "version": "2.0.0",
   "description": "This repository contains the deployable reserve contracts on Kyber",
-  "main": "buidler.config.js",
+  "main": "hardhat.config.js",
   "directories": {
     "test": "test"
   },
@@ -10,14 +10,14 @@
     "test": "./tst.sh",
     "t": "./tst.sh",
     "compile": "./cmp.sh",
-    "c6": "./cmpSol6.sh",
-    "c": "./cmp.sh",
+    "c": "printf 'yes' | ./cmp.sh",
+    "coverage": "./coverage.sh",
     "coverage4": "./coverage.sh -v sol4",
     "coverage5": "./coverage.sh -v sol5",
     "coverage6": "./coverage.sh -v sol6",
     "lint": "yarn solhint 'contracts/**/*.sol'",
-    "gas": "buidler test ./gasProfiling/gasProfiling.js",
-    "g": "buidler test ./gasProfiling/gasProfiling.js"
+    "gas": "hardhat test ./gasProfiling/gasProfiling.js",
+    "g": "hardhat test ./gasProfiling/gasProfiling.js"
   },
   "repository": {
     "type": "git",
@@ -44,17 +44,17 @@
     "yargs": "11.1.1"
   },
   "devDependencies": {
-    "@nomiclabs/buidler": "1.3.4",
-    "@nomiclabs/buidler-ethers": "2.0.0",
-    "@nomiclabs/buidler-truffle5": "1.3.4",
-    "@nomiclabs/buidler-web3": "1.3.4",
+    "@nomiclabs/hardhat-truffle5": "2.0.0",
+    "@nomiclabs/hardhat-web3": "2.0.0",
+    "@nomiclabs/hardhat-ethers": "2.0.0",
     "@openzeppelin/test-helpers": "0.5.6",
     "@uniswap/v2-periphery": "1.1.0-beta.0",
     "chai": "4.2.0",
     "chai-bn": "0.2.0",
-    "cp": "^0.2.0",
+    "cp": "0.2.0",
+    "hardhat": "2.0.0",
     "mv": "2.1.1",
     "prettier": "2.0.4",
-    "solidity-coverage": "0.7.10"
+    "solidity-coverage": "0.7.12"
   }
 }

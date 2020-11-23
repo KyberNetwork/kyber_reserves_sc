@@ -1,7 +1,9 @@
 
 let MockEnhancedStepFunctions = artifacts.require("./mockContracts/MockEnhancedStepFunctions.sol");
+let MockCROverflowCaller = artifacts.require("MockConversionRateOverflowCaller.sol");
 let TestToken = artifacts.require("./mockContracts/TestToken.sol");
 
+const { web3 } = require("@openzeppelin/test-helpers/src/setup");
 let Helper = require("../helper.js");
 const BN = web3.utils.BN;
 
@@ -47,6 +49,7 @@ let comID_SellRateStpImbalanceYLength = 14;
 let comID_SellRateStpImbalanceParamY = 15;
 
 let convRatesInst;
+let overflowCallerInst;
 
 contract('ConversionRateEnhancedSteps', function(accounts) {
     it("should init globals", function() {
@@ -76,6 +79,8 @@ contract('ConversionRateEnhancedSteps', function(accounts) {
         await convRatesInst.addOperator(operator);
         await convRatesInst.setReserveAddress(reserveAddress);
         await convRatesInst.addAlerter(alerter);
+
+        overflowCallerInst = await MockCROverflowCaller.new();
     });
 
     it("should set base rates for all tokens.", async function () {
@@ -312,17 +317,14 @@ contract('ConversionRateEnhancedSteps', function(accounts) {
 
     it("should revert encode data when x overflows", async function() {
         // checking for overflow
-        let x = (new BN(2)).pow(new BN(127));
-        let y = 0;
         try {
-            _ = await convRatesInst.mockEncodeStepData(x, y);
+            overflowCallerInst.callEncodeDataOverflow(convRatesInst.address, true, true);
             assert(false, "Should revert at line above")
         } catch (e) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
-        x = (new BN(2)).pow(new BN(127)).add(new BN(1)).mul(new BN(-1));
         try {
-            _ = await convRatesInst.mockEncodeStepData(x, y);
+            overflowCallerInst.callEncodeDataOverflow(convRatesInst.address, true, false);
             assert(false, "Should revert at line above")
         } catch (e) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
@@ -331,17 +333,14 @@ contract('ConversionRateEnhancedSteps', function(accounts) {
 
     it("should revert encode data when y overflows", async function() {
         // checking for overflow
-        let x = 0;
-        let y = (new BN(2)).pow(new BN(127));
         try {
-            _ = await convRatesInst.mockEncodeStepData(x, y);
+            overflowCallerInst.callEncodeDataOverflow(convRatesInst.address, false, true);
             assert(false, "Should revert at line above")
         } catch (e) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);
         }
-        y = (new BN(2)).pow(new BN(127)).add(new BN(1)).mul(new BN(-1));
         try {
-            _ = await convRatesInst.mockEncodeStepData(x, y);
+            overflowCallerInst.callEncodeDataOverflow(convRatesInst.address, false, false);
             assert(false, "Should revert at line above")
         } catch (e) {
             assert(Helper.isRevertErrorMessage(e), "expected throw but got: " + e);

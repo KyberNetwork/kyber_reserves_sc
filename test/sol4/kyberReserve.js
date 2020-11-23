@@ -162,7 +162,7 @@ contract('KyberReserve', function(accounts) {
         await convRatesInst2.setBaseRate(tokenAdd, baseBuyRate, baseSellRate, buys, sells, currentBlock, indices, {from: operator});
 
         //set compact data
-        compactBuyArr = [0, 0, 0, 0, 0, 06, 07, 08, 09, 1, 0, 11, 12, 13, 14];
+        compactBuyArr = [0, 0, 0, 0, 0, 6, 7, 8, 9, 10, 11, 12, 13, 14];
         let compactBuyHex = Helper.bytesToHex(compactBuyArr);
         buys.push(compactBuyHex);
 
