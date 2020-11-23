@@ -1,4 +1,4 @@
-const artifacts = require('@nomiclabs/buidler').artifacts
+const artifacts = require('@nomiclabs/hardhat').artifacts
 const BN = web3.utils.BN;
 
 const KyberFprReserveV2 = artifacts.require("KyberFprReserveV2.sol");

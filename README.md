@@ -12,9 +12,8 @@ We use `yarn` as the package manager. You may use `npm` and `npx` instead, but c
 1. Clone this repo
 2. `yarn install`
 
-## Compilation with Buidler
-1. `yarn compile` to compile contracts for all solidity versions.
-2. `yarn compileSol6` to compile only sol6 contracts
+## Compilation with Hardhat
+Run `yarn compile`
 
 ## Contract Deployment / Interactions
 
@@ -25,7 +24,7 @@ PRIVATE_KEY=0x****************************************************************
 INFURA_API_KEY=********************************
 ```
 
-## Testing with Buidler
+## Testing with Hardhat
 1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
 2. Run `yarn test`
 3. Use `./tst.sh -f` for running a specific test file.
@@ -35,9 +34,10 @@ INFURA_API_KEY=********************************
 - `./tst.sh -f ./test/sol4/kyberReserve.js` (Test only kyberReserve.js)
 
 ### Example
-`yarn buidler test --no-compile ./test/sol6/sanityRatesGasPrice.js`
+`yarn hardhat test --no-compile ./test/sol6/sanityRatesGasPrice.js`
 
-## Coverage with `buidler-coverage`
-1. Run `yarn coverage4` for coverage on sol4 files
-2. Run `yarn coverage5` for coverage on sol5 files
-3. Run `yarn coverage6` for coverage on sol6 files
+## Coverage with `solidity-coverage`
+1. Run `yarn coverage` for coverage on all sol files
+2. Run `yarn coverage4` for coverage on sol4 files
+3. Run `yarn coverage5` for coverage on sol5 files
+4. Run `yarn coverage6` for coverage on sol6 files

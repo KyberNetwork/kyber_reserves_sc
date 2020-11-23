@@ -1,13 +1,14 @@
-usePlugin("@nomiclabs/buidler-truffle5");
-usePlugin("@nomiclabs/buidler-web3");
+require("@nomiclabs/hardhat-truffle5");
+require("@nomiclabs/hardhat-web3");
 
 require('dotenv').config();
-require('./deployment/fpr/fprBuidlerTask');
-require('./deployment/apr/aprBuidlerTask');
-require('./deployment/apr/setLiquidityBuidlerTask');
+require('./deployment/fpr/fprDeploy');
+require('./deployment/apr/aprDeploy');
+require('./deployment/apr/setLiquidity');
+require('solidity-coverage');
 
 module.exports = {
-  defaultNetwork: "buidlerevm",
+  defaultNetwork: "hardhat",
 
   networks: {
     develop: {
@@ -15,7 +16,7 @@ module.exports = {
       gas: 6000000,
       timeout: 20000
     },
-    buidlerevm: {
+    hardhat: {
       accounts: [
         // 20 accounts with 10^14 ETH each 
         // Addresses:
@@ -143,13 +144,40 @@ module.exports = {
     }
   },
 
-  solc: {
-    version: "0.6.6",
-    optimizer: require("./solcOptimiserSettings.js")
+  solidity: {
+    compilers: [
+      {
+        version: "0.6.6",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 30000
+          }
+        }
+      },
+      {
+        version: "0.5.11",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 30000
+          }
+        }
+      },
+      {
+        version: "0.4.18",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 30000
+          }
+        }
+      }
+    ]
   },
 
   paths: {
-    sources: "./contracts/sol6",
+    sources: "./contracts/",
     tests: "./test/",
   },
 
