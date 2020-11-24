@@ -959,7 +959,7 @@ contract('QtyStepConversionRates', function (accounts) {
         );
       }
 
-      compactBuyArr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      compactBuyArr = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
       let buys = [Helper.bytesToHex(compactBuyArr)];
       let sells = [Helper.bytesToHex(compactBuyArr)];
       let indices = [0];
