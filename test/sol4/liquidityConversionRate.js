@@ -580,7 +580,7 @@ contract('LiquidityConversionRates', function(accounts) {
 });
 
 
-contract('kyberReserve for Liquidity', function(accounts) {
+contract('kyberReserve with APR (AMM)', function(accounts) {
     it("should init globals. init ConversionRates Inst, token, set liquidity params .", async function () {
         // set account addresses
         admin = accounts[0];
