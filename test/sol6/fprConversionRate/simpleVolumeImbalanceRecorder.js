@@ -90,13 +90,20 @@ contract('SimpleVolumeImbalanceRecorder', function (accounts) {
     });
 
     it('setTokenControlInfo should success', async function () {
-      await imbalanceInst.setTokenControlInfo(
+      let txResult = await imbalanceInst.setTokenControlInfo(
         token.address,
         minimalRecordResolution,
         maxPerBlockImbalance,
         maxTotalImbalance,
         {from: admin}
       );
+
+      expectEvent(txResult, 'SetTokenControlInfo', {
+        token: token.address,
+        minimalRecordResolution: new BN(minimalRecordResolution),
+        maxPerBlockImbalanceInResolution: new BN(maxPerBlockImbalance / minimalRecordResolution),
+        maxTotalImbalanceInResolution: new BN(maxTotalImbalance / minimalRecordResolution)
+      });
 
       //get token control info
       let controlInfo = await imbalanceInst.getTokenControlInfo(token.address);
@@ -130,7 +137,7 @@ contract('SimpleVolumeImbalanceRecorder', function (accounts) {
         {from: admin}
       );
     });
-    
+
     it('should test correct negative imbalance calculated on updates without block change and without price updates.', async function () {
       currentBlock = 1002;
       priceUpdateBlock = 1001;
@@ -367,15 +374,15 @@ contract('SimpleVolumeImbalanceRecorder', function (accounts) {
         priceUpdateBlock,
         currentBlock
       ),
-      await expectRevert(
-        imbalanceInst2.mockAddImbalance(
-          token.address,
-          new BN(minimalRecordResolution),
-          priceUpdateBlock,
-          currentBlock
-        ),
-        'SafeInt64: addition overflow'
-      );
+        await expectRevert(
+          imbalanceInst2.mockAddImbalance(
+            token.address,
+            new BN(minimalRecordResolution),
+            priceUpdateBlock,
+            currentBlock
+          ),
+          'SafeInt64: addition overflow'
+        );
     });
   });
 });

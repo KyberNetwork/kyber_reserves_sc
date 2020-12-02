@@ -63,6 +63,14 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
 
     address public reserveContract;
 
+    event AddToken(
+        IERC20Ext indexed token,
+        uint16 compactDataArrayIndex,
+        uint16 compactDataFieldIndex
+    );
+    event EnableTokenTrade(IERC20Ext indexed token, bool isEnabled);
+    event SetReserveContract(address reserve);
+
     constructor(address _admin) public SimpleVolumeImbalanceRecorder(_admin) {}
 
     function addToken(IERC20Ext token) external onlyAdmin {
@@ -83,6 +91,12 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
 
         setGarbageToVolumeRecorder(token);
         getSetDecimals(token);
+
+        emit AddToken(
+            token,
+            tokenData[token].compactDataArrayIndex,
+            tokenData[token].compactDataFieldIndex
+        );
     }
 
     /// @dev this function set a batch of token with the same slot for compact data
@@ -157,15 +171,21 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
             "tokenControlInfo is required"
         );
         tokenData[token].enabled = true;
+
+        emit EnableTokenTrade(token, true);
     }
 
     function disableTokenTrade(IERC20Ext token) external onlyOperator {
         require(tokenData[token].listed, "unlisted token");
         tokenData[token].enabled = false;
+
+        emit EnableTokenTrade(token, false);
     }
 
     function setReserveAddress(address reserve) external onlyAdmin {
         reserveContract = reserve;
+
+        emit SetReserveContract(reserve);
     }
 
     function recordImbalance(
@@ -186,26 +206,21 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         uint256 currentBlockNumber,
         bool buy,
         uint256 qty
-    ) external override view returns (uint256) {
+    ) external view override returns (uint256) {
         TokenData memory data = tokenData[token];
         // check if trade is enabled
         // if trade is enable, minimalRecordResolution != 0
         if (!data.enabled) return 0;
 
-        (uint256 rate, uint256 updateRateBlock) = getRateWithoutImbalance(
-            data,
-            currentBlockNumber,
-            buy
-        );
+        (uint256 rate, uint256 updateRateBlock) =
+            getRateWithoutImbalance(data, currentBlockNumber, buy);
         if (rate == 0) {
             return 0;
         }
 
         // check imbalance
-        (
-            int256 totalImbalanceInResolution,
-            int256 blockImbalanceInResolution
-        ) = getImbalanceInResolution(token, updateRateBlock, currentBlockNumber);
+        (int256 totalImbalanceInResolution, int256 blockImbalanceInResolution) =
+            getImbalanceInResolution(token, updateRateBlock, currentBlockNumber);
 
         // calculate actual rate
         TokenControlInfo memory tkInfo = tokenControlInfo[token];
@@ -365,8 +380,8 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         bool buy
     ) internal view returns (uint256 rate, uint256 updateRateBlock) {
         // get rate update block
-        TokenRatesCompactData memory compactData = tokenRatesCompactData[data
-            .compactDataArrayIndex];
+        TokenRatesCompactData memory compactData =
+            tokenRatesCompactData[data.compactDataArrayIndex];
         updateRateBlock = compactData.blockNumber;
         if (currentBlockNumber >= uint256(compactData.blockNumber) + validRateDurationInBlocks) {
             return (0, 0); // rate is expired
@@ -374,9 +389,8 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         rate = buy ? uint256(data.baseBuyRate) : uint256(data.baseSellRate);
         // add rate update
         uint256 fieldOffset = uint256(data.compactDataFieldIndex);
-        int8 rateUpdate = buy
-            ? int8(compactData.buy[fieldOffset])
-            : int8(compactData.sell[fieldOffset]);
+        int8 rateUpdate =
+            buy ? int8(compactData.buy[fieldOffset]) : int8(compactData.sell[fieldOffset]);
         rate = addBps(rate, int256(rateUpdate) * 10);
     }
 

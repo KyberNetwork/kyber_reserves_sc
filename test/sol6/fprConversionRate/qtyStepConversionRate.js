@@ -56,6 +56,7 @@ const minimalRecordResolution = 2; //low resolution so I don't lose too much dat
 const maxPerBlockImbalance = 4000;
 const maxTotalImbalance = maxPerBlockImbalance * 12;
 const numTokens = 17;
+const numTokensInCompactData = 14;
 
 contract('QtyStepConversionRates', function (accounts) {
   before('should init globals', function () {
@@ -77,18 +78,25 @@ contract('QtyStepConversionRates', function (accounts) {
     for (let i = 0; i < numTokens; ++i) {
       let token = await TestToken.new('test' + i, 'tst' + i, 18);
       tokens.push(token.address);
-      await convRatesInst.addToken(token.address);
+      let txResult = await convRatesInst.addToken(token.address);
+      await expectEvent(txResult, 'AddToken', {
+        token: token.address,
+        compactDataArrayIndex: new BN(i / numTokensInCompactData),
+        compactDataFieldIndex: new BN(i % numTokensInCompactData)
+      });
       await convRatesInst.setTokenControlInfo(
         token.address,
         minimalRecordResolution,
         maxPerBlockImbalance,
         maxTotalImbalance
       );
-      await convRatesInst.enableTokenTrade(token.address);
+      txResult = await convRatesInst.enableTokenTrade(token.address);
+      await expectEvent(txResult, 'EnableTokenTrade', {token: token.address, isEnabled: true});
     }
 
     await convRatesInst.addOperator(operator);
-    await convRatesInst.setReserveAddress(reserveAddress);
+    let txResult = await convRatesInst.setReserveAddress(reserveAddress);
+    await expectEvent(txResult, 'SetReserveContract', {reserve: reserveAddress});
     await convRatesInst.addAlerter(alerter);
   });
 
@@ -673,11 +681,19 @@ contract('QtyStepConversionRates', function (accounts) {
     let rate = await convRatesInst.getRate(tokens[index], currentBlock, false, qty);
     Helper.assertGreater(rate, 0, 'unexpected rate');
 
-    await convRatesInst.disableTokenTrade(tokens[index], {from: operator});
+    let txResult = await convRatesInst.disableTokenTrade(tokens[index], {from: operator});
+    await expectEvent(txResult, 'EnableTokenTrade', {
+      token: tokens[index],
+      isEnabled: false
+    });
     rate = await convRatesInst.getRate(tokens[index], currentBlock, false, qty);
     Helper.assertEqual(rate, 0, 'unexpected rate');
 
-    await convRatesInst.enableTokenTrade(tokens[index]);
+    txResult = await convRatesInst.enableTokenTrade(tokens[index]);
+    await expectEvent(txResult, 'EnableTokenTrade', {
+      token: tokens[index],
+      isEnabled: true
+    });
   });
 
   it('should verify get rate returns 0 block is high (bigger then expiration block).', async function () {

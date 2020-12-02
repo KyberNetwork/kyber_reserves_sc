@@ -34,6 +34,13 @@ contract SimpleVolumeImbalanceRecorder is Withdrawable {
     mapping(IERC20Ext => TokenControlInfo) internal tokenControlInfo;
     mapping(IERC20Ext => TokenImbalanceData) public tokenImbalanceData;
 
+    event SetTokenControlInfo(
+        IERC20Ext indexed token,
+        uint128 minimalRecordResolution,
+        uint64 maxPerBlockImbalanceInResolution,
+        uint64 maxTotalImbalanceInResolution
+    );
+
     constructor(address _admin) public Withdrawable(_admin) {}
 
     function setTokenControlInfo(
@@ -46,21 +53,28 @@ contract SimpleVolumeImbalanceRecorder is Withdrawable {
         require(maxPerBlockImbalance != 0, "zero maxPerBlockImbalance");
         require(maxTotalImbalance != 0, "zero maxTotalImbalance");
 
-        uint256 maxPerBlockImbalanceInResolution = maxPerBlockImbalance /
-            uint256(minimalRecordResolution);
+        uint256 maxPerBlockImbalanceInResolution =
+            maxPerBlockImbalance / uint256(minimalRecordResolution);
         // because abs(lastBlockBuyUnitsImbalance) <= MAX_INT64
         // maxPerBlockImbalanceInResolution <= MAX_INT64
         require(
             maxPerBlockImbalanceInResolution <= uint256(MAX_INT64),
             "overflow maxPerBlockImbalance"
         );
-        uint256 maxTotalImbalanceInResolution = maxTotalImbalance /
-            uint256(minimalRecordResolution);
+        uint256 maxTotalImbalanceInResolution =
+            maxTotalImbalance / uint256(minimalRecordResolution);
         // because abs(totalBuyUnitsImbalance) <= MAX_INT64
         // maxTotalImbalanceInResolution <= MAX_INT64
         require(maxTotalImbalanceInResolution <= uint256(MAX_INT64), "overflow maxTotalImbalance");
         tokenControlInfo[token] = TokenControlInfo(
             uint128(minimalRecordResolution),
+            uint64(maxPerBlockImbalanceInResolution),
+            uint64(maxTotalImbalanceInResolution)
+        );
+
+        emit SetTokenControlInfo(
+            token,
+            minimalRecordResolution,
             uint64(maxPerBlockImbalanceInResolution),
             uint64(maxTotalImbalanceInResolution)
         );
@@ -87,9 +101,8 @@ contract SimpleVolumeImbalanceRecorder is Withdrawable {
         uint256 rateUpdateBlock,
         uint256 currentBlock
     ) internal {
-        int64 recordedBuyAmount = safeInt64(
-            buyAmount / int256(tokenControlInfo[token].minimalRecordResolution)
-        );
+        int64 recordedBuyAmount =
+            safeInt64(buyAmount / int256(tokenControlInfo[token].minimalRecordResolution));
         TokenImbalanceData memory currentBlockData = tokenImbalanceData[token];
 
         // first scenario - this is not the first tx in the current block
