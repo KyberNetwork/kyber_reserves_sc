@@ -119,7 +119,7 @@ function parseInput(jsonInput) {
 };
 
 async function fetchBalances() {
-  let token = await ethers.getContractAt("IERC20", tokenAddress);
+  let token = await ethers.getContractAt("IERC20Ext", tokenAddress);
   let tokenDecimals = await token.decimals();
 
   ethBalance = await ethers.provider.getBalance(reserveAddress) / 10 ** 18;
