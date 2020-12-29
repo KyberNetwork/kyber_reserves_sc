@@ -32,11 +32,7 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
     bytes32[] internal tokenRatesCompactData;
     address public reserveContract;
 
-    IERC20Ext public primaryQuote;
-    IERC20Ext[] public secondaryQuotes;
-    mapping(IERC20Ext => uint128) public quoteIndexes;
-    uint128 internal constant NON_QUOTE_INDEX = 0;
-    uint128 internal constant PRIMARY_QUOTE_INDEX = 1;
+    IERC20Ext public quoteToken;
 
     uint128 public numTokensInCurrentCompactData;
     uint128 constant internal NUM_TOKENS_IN_COMPACT_DATA = 14;
@@ -46,10 +42,9 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
     int constant internal MIN_BPS_ADJUSTMENT = -100 * 100; // cannot go down by more than 100%
     int constant internal MAX_BPS_ADJUSTMENT = 100 * 100;
     
-    constructor(address _admin, IERC20Ext _primaryQuote) public VolumeImbalanceRecorder(_admin) {
-        primaryQuote = _primaryQuote;
-        quoteIndexes[_primaryQuote] = PRIMARY_QUOTE_INDEX;
-        getSetDecimals(_primaryQuote);
+    constructor(address _admin, IERC20Ext _quoteToken) public VolumeImbalanceRecorder(_admin) {
+        quoteToken = _quoteToken;
+        getSetDecimals(_quoteToken);
     }
 
     function addToken(IERC20Ext token) external onlyAdmin {
@@ -90,28 +85,10 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
         tokenData[token2].compactDataFieldIndex = tempFieldIndex;
     }
 
-    function setPrimaryQuote(IERC20Ext _primaryQuote) external onlyAdmin {
+    function setQuoteToken(IERC20Ext _quoteToken) external onlyAdmin {
         // set current primary quote indexes to non-quote
-        quoteIndexes[primaryQuote] = NON_QUOTE_INDEX;
-
-        primaryQuote = _primaryQuote;
-        quoteIndexes[_primaryQuote] = PRIMARY_QUOTE_INDEX;
-        getSetDecimals(_primaryQuote);
-    }
-
-    function setSecondaryQuotes(IERC20Ext[] calldata _secondaryQuotes) external onlyAdmin {
-        // set current secondary quote indexes to non-quote
-        uint8 i;
-        for (i = 0; i < secondaryQuotes.length; i++) {
-            quoteIndexes[secondaryQuotes[i]] = NON_QUOTE_INDEX;
-        }
-
-        // update secondary quotes
-        secondaryQuotes = _secondaryQuotes;
-        for (i = 0; i < secondaryQuotes.length; i++) {
-            quoteIndexes[secondaryQuotes[i]] = uint128(PRIMARY_QUOTE_INDEX + i);
-            getSetDecimals(secondaryQuotes[i]);
-        }
+        quoteToken = _quoteToken;
+        getSetDecimals(_quoteToken);
     }
 
     function setBaseRate(
@@ -209,53 +186,29 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
         uint256 currentBlockNumber,
         uint256 amount
     ) public view override returns(uint256) {
-        uint128 srcQuoteIndex = quoteIndexes[src];
-        uint128 destQuoteIndex = quoteIndexes[dest];
+        if (src == dest) return 0;
 
-        // src == dest, return 0
-        if (srcQuoteIndex == destQuoteIndex) return 0;
-
-        if (srcQuoteIndex == PRIMARY_QUOTE_INDEX) {
-            // primary -> secondary
-            // primary -> non-quote
+        if (src == quoteToken) {
             // simple case, apply dest steps
             return calcRate(dest, currentBlockNumber, true, amount);
-        } else if (srcQuoteIndex > PRIMARY_QUOTE_INDEX) {
-            // src = secondary quote
-            if (destQuoteIndex == PRIMARY_QUOTE_INDEX) {
-                // secondary -> primary
-                // apply src steps
-                return calcRate(src, currentBlockNumber, false, amount);
-            } else if (destQuoteIndex > PRIMARY_QUOTE_INDEX) {
-                // secondary -> another secondary
-                if (srcQuoteIndex > destQuoteIndex) {
-                    // src lower ranked than dest
-                    // apply src steps
-                    return calcRate(src, currentBlockNumber, false, amount);
-                } else {
-                    // src higher ranked than dest
-                    // apply dest steps
-                    return calcRate(dest, currentBlockNumber, true, amount);
-                }
-            } else {
-                // secondary -> non-quote
-                // apply percentage of secondary steps?
-                // apply non-quote
-            }
+        } else if (dest == quoteToken) {
+            // simple case, apply src steps
+            return calcRate(src, currentBlockNumber, false, amount);
         } else {
-            if (destQuoteIndex == PRIMARY_QUOTE_INDEX) {
-                // non-quote -> primary
-                // apply non-quote steps
-                return calcRate(src, currentBlockNumber, false, amount);
-            } else if (destQuoteIndex > PRIMARY_QUOTE_INDEX) {
-                // non-quote -> secondary
-                // apply non-quote steps
-                // apply percentage of secondary steps?
-            } else {
-                // non-quote -> non-quote
-                // do we do non-quote -> primary -> non-quote?
-                // or return 0?
-            }
+            // apply src steps, then dest steps
+            uint256 srcRate = calcRate(src, currentBlockNumber, false, amount);
+            // apply dest steps with calculated quote amount
+            return calcRate(
+                dest,
+                currentBlockNumber,
+                true,
+                calcDstQty(
+                    amount,
+                    getDecimals(quoteToken),
+                    getDecimals(dest),
+                    srcRate
+                )
+            );
         }
     }
 
@@ -296,9 +249,8 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
             rate = addBps(rate, extraBps);
 
             // compute token qty
-            qty = getTokenQty(token, rate, qty);
+            qty = calcDstQty(qty, getDecimals(quoteToken), getDecimals(token), rate);
             imbalanceQty = int(qty);
-            totalImbalance += imbalanceQty;
 
             // add qty overhead
             extraBps = executeStepFunction(tokenData[token].buyRateQtyStepFunction, int(qty));
@@ -318,11 +270,6 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
 
             // compute token qty
             imbalanceQty = -1 * int(qty);
-            totalImbalance += imbalanceQty;
-
-            // add qty overhead
-            extraBps = executeStepFunction(tokenData[token].sellRateQtyStepFunction, int(qty));
-            rate = addBps(rate, extraBps);
 
             // add imbalance overhead
             extraBps = executeStepFunction(tokenData[token].sellRateImbalanceStepFunction, totalImbalance);
@@ -387,13 +334,6 @@ contract ConversionRatesMulQuotes is ICRMulQuotes, VolumeImbalanceRecorder {
         }
 
         return f.y[len-1];
-    }
-
-    function getTokenQty(IERC20Ext token, uint ethQty, uint rate) internal view returns(uint) {
-        uint dstDecimals = getDecimals(token);
-        uint srcDecimals = ETH_DECIMALS;
-
-        return calcDstQty(ethQty, srcDecimals, dstDecimals, rate);
     }
 
     function getRateByteFromCompactData(
