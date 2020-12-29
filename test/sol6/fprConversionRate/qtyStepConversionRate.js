@@ -57,6 +57,8 @@ const maxPerBlockImbalance = 4000;
 const maxTotalImbalance = maxPerBlockImbalance * 12;
 const numTokens = 17;
 const numTokensInCompactData = 14;
+const minLegalBps = new BN(-10000);
+const maxLegalBps = new BN(10).pow(new BN(11));
 
 contract('QtyStepConversionRates', function (accounts) {
   before('should init globals', function () {
@@ -193,6 +195,39 @@ contract('QtyStepConversionRates', function (accounts) {
       'safeInt128: type cast overflow'
     );
     qtyBuyStepX[0] = 15;
+
+    let tmpQtyBuyStepY = [...qtyBuyStepY];
+    tmpQtyBuyStepY[tmpQtyBuyStepY.length - 1] = maxLegalBps.add(new BN(1));
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, tmpQtyBuyStepY, qtySellStepX, qtySellStepY, {
+        from: operator
+      }),
+      'yBuy too high'
+    );
+    tmpQtyBuyStepY[tmpQtyBuyStepY.length - 1] = minLegalBps.sub(new BN(1));
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, tmpQtyBuyStepY, qtySellStepX, qtySellStepY, {
+        from: operator
+      }),
+      'yBuy too low'
+    );
+
+    let tmpQtySellStepY = [...qtySellStepY];
+    tmpQtySellStepY[tmpQtySellStepY.length - 1] = maxLegalBps.add(new BN(1));
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, qtyBuyStepY, qtySellStepX, tmpQtySellStepY, {
+        from: operator
+      }),
+      'ySell too high'
+    );
+    tmpQtySellStepY[tmpQtySellStepY.length - 1] = minLegalBps.sub(new BN(1));
+    console.log(tmpQtySellStepY);
+    await expectRevert(
+      convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, qtyBuyStepY, qtySellStepX, tmpQtySellStepY, {
+        from: operator
+      }),
+      'ySell too low'
+    );
 
     for (let i = 0; i < numTokens; ++i) {
       await convRatesInst.setQtyStepFunction(tokens[i], qtyBuyStepX, qtyBuyStepY, qtySellStepX, qtySellStepY, {
@@ -826,11 +861,9 @@ contract('QtyStepConversionRates', function (accounts) {
   });
 
   it('should verify add bps reverts for illegal values', async function () {
-    let minLegalBps = -100 * 100;
-    let maxLegalBps = new BN(10).pow(new BN(11));
     let legalRate = new BN(10).pow(new BN(25));
     let illegalRate = legalRate.add(new BN(1));
-    let illegalBpsMinSide = minLegalBps - 1 * 1;
+    let illegalBpsMinSide = minLegalBps.sub(new BN(1));
     let illegalBpsMaxSide = maxLegalBps.add(new BN(1));
 
     await convRatesInst.mockAddBps(legalRate, minLegalBps);

@@ -146,6 +146,8 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
 
         tokenBuyQtySteps[token].length = xBuy.length;
         for (uint256 i = 0; i < xBuy.length; i++) {
+            require(yBuy[i] <= MAX_BPS_ADJUSTMENT, "yBuy too high");
+            require(yBuy[i] >= MIN_BPS_ADJUSTMENT, "yBuy too low");
             tokenBuyQtySteps[token].data[i] = StepFunction(
                 safeInt128(xBuy[i]),
                 safeInt128(yBuy[i])
@@ -153,6 +155,8 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         }
         tokenSellQtySteps[token].length = xSell.length;
         for (uint256 i = 0; i < xSell.length; i++) {
+            require(ySell[i] <= MAX_BPS_ADJUSTMENT, "ySell too high");
+            require(ySell[i] >= MIN_BPS_ADJUSTMENT, "ySell too low");
             tokenSellQtySteps[token].data[i] = StepFunction(
                 safeInt128(xSell[i]),
                 safeInt128(ySell[i])
