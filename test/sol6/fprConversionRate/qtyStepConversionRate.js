@@ -221,7 +221,6 @@ contract('QtyStepConversionRates', function (accounts) {
       'ySell too high'
     );
     tmpQtySellStepY[tmpQtySellStepY.length - 1] = minLegalBps.sub(new BN(1));
-    console.log(tmpQtySellStepY);
     await expectRevert(
       convRatesInst.setQtyStepFunction(tokens[0], qtyBuyStepX, qtyBuyStepY, qtySellStepX, tmpQtySellStepY, {
         from: operator

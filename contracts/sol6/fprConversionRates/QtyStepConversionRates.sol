@@ -232,7 +232,7 @@ contract QtyStepConversionRates is IConversionRates, SimpleVolumeImbalanceRecord
         int256 extraBps;
         if (buy) {
             // compute token qty
-            qty = getTokenQty(token, rate, qty);
+            qty = getTokenQty(token, qty, rate);
             imbalanceQty = int256(qty) / int256(tkInfo.minimalRecordResolution);
             totalImbalanceInResolution += imbalanceQty;
 
