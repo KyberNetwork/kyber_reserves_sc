@@ -14,7 +14,7 @@ module.exports = {
     develop: {
       url: "http://127.0.0.1:8545",
       gas: 6000000,
-      timeout: 20000
+      timeout: 40000
     },
     hardhat: {
       accounts: [
