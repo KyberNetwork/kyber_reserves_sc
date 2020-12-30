@@ -4,13 +4,17 @@ import "@kyber.network/utils-sc/contracts/IERC20Ext.sol";
 import "@kyber.network/utils-sc/contracts/Withdrawable.sol";
 
 interface IConversionRatesGetSteps {
-    function getStepFunctionData(IERC20Ext token, uint command, uint param) external view returns(int);
+    function getStepFunctionData(IERC20Ext token, uint command, uint param)
+        external view returns(int);
 }
 
 contract WrapReadTokenDataV2 is Withdrawable {
     constructor(address _admin) public Withdrawable(_admin) {}
 
-    function readQtyStepFunctions(IConversionRatesGetSteps rate, IERC20Ext token)
+    function readQtyStepFunctions(
+        IConversionRatesGetSteps rate,
+        IERC20Ext token
+    )
         external view
         returns (
             int numBuyRateQtyStepsX, 
@@ -53,7 +57,10 @@ contract WrapReadTokenDataV2 is Withdrawable {
         }
     }
 
-    function readImbalanceStepFunctions(IConversionRatesGetSteps rate, IERC20Ext token)
+    function readImbalanceStepFunctions(
+        IConversionRatesGetSteps rate,
+        IERC20Ext token
+    )
         external view
         returns (
             int numBuyRateImbalanceStepsX,
