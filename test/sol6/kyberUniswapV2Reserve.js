@@ -11,9 +11,6 @@ const {BPS, ethDecimals, ethAddress, zeroAddress, zeroBN, MAX_ALLOWANCE} = requi
 const Helper = require('../helper.js');
 const {assert} = require('chai');
 
-let UniswapV2Factory;
-let UniswapV2Router02;
-
 let admin;
 let operator;
 let alerter;
