@@ -1,23 +1,13 @@
-const UniswapV2FactoryOutput = require('@uniswap/v2-core/build/UniswapV2Factory.json');
-const UniswapV2Router02Output = require('@uniswap/v2-periphery/build/UniswapV2Router02.json');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
+const UniswapV2Router02 = artifacts.require('UniswapV2Router02');
 const MockUniswapRounter = artifacts.require('MockUniswapRouter.sol');
 const KyberUniswapV2Reserve = artifacts.require('KyberUniswapV2Reserve.sol');
 const WethToken = artifacts.require('WethToken');
 const TestToken = artifacts.require('Token.sol');
-
-const truffleContract = require('@truffle/contract');
-const provider = web3.currentProvider;
 const BN = web3.utils.BN;
 const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
 
-const {
-  BPS,
-  ethDecimals,
-  ethAddress,
-  zeroAddress,
-  zeroBN,
-  MAX_ALLOWANCE
-} = require('../helper.js');
+const {BPS, ethDecimals, ethAddress, zeroAddress, zeroBN, MAX_ALLOWANCE} = require('../helper.js');
 const Helper = require('../helper.js');
 const {assert} = require('chai');
 
@@ -41,10 +31,6 @@ let maxUint256 = new BN(2).pow(new BN(256)).sub(new BN(1));
 
 contract('KyberUniswapv2Reserve', function (accounts) {
   before('init contract and accounts', async () => {
-    UniswapV2Factory = truffleContract(UniswapV2FactoryOutput);
-    UniswapV2Factory.setProvider(provider);
-    UniswapV2Router02 = truffleContract(UniswapV2Router02Output);
-    UniswapV2Router02.setProvider(provider);
     admin = accounts[1];
     operator = accounts[2];
     alerter = accounts[3];
@@ -63,17 +49,11 @@ contract('KyberUniswapv2Reserve', function (accounts) {
 
   describe('constructor params', () => {
     it('test revert if uniswapFactory 0', async () => {
-      await expectRevert(
-        KyberUniswapV2Reserve.new(zeroAddress, weth.address, admin, network),
-        'uniswapRouter 0'
-      );
+      await expectRevert(KyberUniswapV2Reserve.new(zeroAddress, weth.address, admin, network), 'uniswapRouter 0');
     });
 
     it('test revert if weth 0', async () => {
-      await expectRevert(
-        KyberUniswapV2Reserve.new(uniswapFactory.address, zeroAddress, admin, network),
-        'weth 0'
-      );
+      await expectRevert(KyberUniswapV2Reserve.new(uniswapFactory.address, zeroAddress, admin, network), 'weth 0');
     });
 
     it('test revert if kyberNetwork 0', async () => {
@@ -91,17 +71,9 @@ contract('KyberUniswapv2Reserve', function (accounts) {
     });
 
     it('test constructor success', async () => {
-      reserve = await KyberUniswapV2Reserve.new(
-        uniswapRouter.address,
-        weth.address,
-        admin,
-        network
-      );
+      reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
 
-      assert(
-        uniswapRouter.address == (await reserve.uniswapRouter()),
-        'unexpected uniswapFactory'
-      );
+      assert(uniswapRouter.address == (await reserve.uniswapRouter()), 'unexpected uniswapFactory');
       assert(weth.address == (await reserve.weth()), 'unexpected weth');
       assert(network == (await reserve.kyberNetwork()), 'unexpected kyberNetwork');
     });
@@ -110,12 +82,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
   describe('send and withdraw token', async () => {
     let sendAmount = new BN(10).pow(new BN(18));
     before('set up reserve', async () => {
-      reserve = await KyberUniswapV2Reserve.new(
-        uniswapRouter.address,
-        weth.address,
-        admin,
-        network
-      );
+      reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
     });
 
     it('test reserve able to receive ether', async () => {
@@ -123,10 +90,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
     });
 
     it('test revert if withdraw from non-admin', async () => {
-      await expectRevert(
-        reserve.withdrawEther(sendAmount, network, {from: network}),
-        'only admin'
-      );
+      await expectRevert(reserve.withdrawEther(sendAmount, network, {from: network}), 'only admin');
     });
 
     it('test withdraw from admin', async () => {
@@ -137,12 +101,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
   describe('test permission operation', () => {
     let testToken;
     before('set up reserve', async () => {
-      reserve = await KyberUniswapV2Reserve.new(
-        uniswapRouter.address,
-        weth.address,
-        admin,
-        network
-      );
+      reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
       await reserve.addAlerter(alerter, {from: admin});
       await reserve.addOperator(operator, {from: admin});
       testToken = await TestToken.new('test token', 'TST', new BN(15));
@@ -199,25 +158,18 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       expectEvent(txResult, 'KyberNetworkSet', {
         kyberNetwork: newNetwork
       });
-      assert(newNetwork == await reserve.kyberNetwork(), "network contract missmatch")
+      assert(newNetwork == (await reserve.kyberNetwork()), 'network contract missmatch');
       //reset network value
-      reserve.setKyberNetwork(network, {from: admin})
+      reserve.setKyberNetwork(network, {from: admin});
     });
-
 
     describe('test list - delist token', async () => {
       it('test list token revert from non-operator', async () => {
-        await expectRevert(
-          reserve.listToken(testToken.address, true, true, {from: alerter}),
-          'only operator'
-        );
+        await expectRevert(reserve.listToken(testToken.address, true, true, {from: alerter}), 'only operator');
       });
 
       it('test list token revert if token 0', async () => {
-        await expectRevert(
-          reserve.listToken(zeroAddress, true, true, {from: operator}),
-          'token 0'
-        );
+        await expectRevert(reserve.listToken(zeroAddress, true, true, {from: operator}), 'token 0');
       });
 
       it('test list token succes without default path', async () => {
@@ -265,10 +217,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
 
         assert(await reserve.tokenListed(testToken.address), 'tokenListed is false');
 
-        await expectRevert(
-          reserve.listToken(testToken.address, true, true, {from: operator}),
-          'token is listed'
-        );
+        await expectRevert(reserve.listToken(testToken.address, true, true, {from: operator}), 'token is listed');
       });
 
       it('test list token with verifying paths exists', async () => {
@@ -304,10 +253,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       });
 
       it('test delist token revert if not operator', async () => {
-        await expectRevert(
-          reserve.delistToken(testToken.address, {from: alerter}),
-          'only operator'
-        );
+        await expectRevert(reserve.delistToken(testToken.address, {from: alerter}), 'only operator');
       });
 
       it('test delist token revert if not listed token', async () => {
@@ -331,12 +277,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
 
     describe('test add - remove path', async () => {
       before('set up', async () => {
-        reserve = await KyberUniswapV2Reserve.new(
-          uniswapRouter.address,
-          weth.address,
-          admin,
-          network
-        );
+        reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
         await reserve.addAlerter(alerter, {from: admin});
         await reserve.addOperator(operator, {from: admin});
         testToken = await TestToken.new('test token', 'TST', new BN(15));
@@ -397,14 +338,9 @@ contract('KyberUniswapv2Reserve', function (accounts) {
           maxUint256,
           {value: new BN(10).pow(new BN(19)).mul(new BN(5)), from: accounts[0]}
         );
-        let txResult = await reserve.addPath(
-          testToken.address,
-          [testToken.address, weth.address],
-          false,
-          {
-            from: operator
-          }
-        );
+        let txResult = await reserve.addPath(testToken.address, [testToken.address, weth.address], false, {
+          from: operator
+        });
         expectEvent(txResult, 'TokenPathAdded', {
           token: testToken.address,
           path: [testToken.address, weth.address],
@@ -414,17 +350,11 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       });
 
       it('test remove path revert from non-operator', async () => {
-        await expectRevert(
-          reserve.removePath(testToken.address, false, new BN(1), {from: admin}),
-          'only operator'
-        );
+        await expectRevert(reserve.removePath(testToken.address, false, new BN(1), {from: admin}), 'only operator');
       });
 
       it('test remove path revert with invalid index', async () => {
-        await expectRevert(
-          reserve.removePath(testToken.address, false, new BN(1), {from: operator}),
-          'invalid index'
-        );
+        await expectRevert(reserve.removePath(testToken.address, false, new BN(1), {from: operator}), 'invalid index');
       });
 
       it('test remove path success', async () => {
@@ -447,12 +377,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
     let testTokenDecimal = new BN(15);
     let feeBps = new BN(89);
     before('set up reserve', async () => {
-      reserve = await KyberUniswapV2Reserve.new(
-        uniswapRouter.address,
-        weth.address,
-        admin,
-        network
-      );
+      reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
       await reserve.setFee(feeBps, {from: admin});
 
       testToken = await TestToken.new('test token', 'TST', testTokenDecimal);
@@ -481,12 +406,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
 
     it('test getConversionRate if trade is not enable', async () => {
       await reserve.disableTrade({from: alerter});
-      let rate = await reserve.getConversionRate(
-        ethAddress,
-        testToken.address,
-        srcAmount,
-        new BN(0)
-      );
+      let rate = await reserve.getConversionRate(ethAddress, testToken.address, srcAmount, new BN(0));
       Helper.assertEqual(zeroBN, rate, 'rate should be 0');
       await reserve.enableTrade({from: admin});
     });
@@ -497,38 +417,20 @@ contract('KyberUniswapv2Reserve', function (accounts) {
     });
 
     it('test getConversionRate for e2t', async () => {
-      let rate = await reserve.getConversionRate(
-        ethAddress,
-        testToken.address,
-        srcAmount,
-        new BN(0)
-      );
-      let uniswapDstQty = await uniswapRouter.getAmountsOut(
-        srcAmount.mul(BPS.sub(feeBps)).div(BPS),
-        [weth.address, testToken.address]
-      );
+      let rate = await reserve.getConversionRate(ethAddress, testToken.address, srcAmount, new BN(0));
+      let uniswapDstQty = await uniswapRouter.getAmountsOut(srcAmount.mul(BPS.sub(feeBps)).div(BPS), [
+        weth.address,
+        testToken.address
+      ]);
 
-      let expectedRate = Helper.calcRateFromQty(
-        srcAmount,
-        uniswapDstQty[1],
-        ethDecimals,
-        testTokenDecimal
-      );
+      let expectedRate = Helper.calcRateFromQty(srcAmount, uniswapDstQty[1], ethDecimals, testTokenDecimal);
       Helper.assertEqual(rate, expectedRate, 'unexpected rate');
     });
 
     it('test getConversionRate for t2e', async () => {
-      let rate = await reserve.getConversionRate(
-        testToken.address,
-        ethAddress,
-        srcAmount,
-        new BN(0)
-      );
+      let rate = await reserve.getConversionRate(testToken.address, ethAddress, srcAmount, new BN(0));
 
-      let uniswapDstQty = await uniswapRouter.getAmountsOut(srcAmount, [
-        testToken.address,
-        weth.address
-      ]);
+      let uniswapDstQty = await uniswapRouter.getAmountsOut(srcAmount, [testToken.address, weth.address]);
 
       let expectedRate = Helper.calcRateFromQty(
         srcAmount,
@@ -580,12 +482,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
         {from: accounts[0]}
       );
 
-      reserve = await KyberUniswapV2Reserve.new(
-        uniswapRouter.address,
-        weth.address,
-        admin,
-        network
-      );
+      reserve = await KyberUniswapV2Reserve.new(uniswapRouter.address, weth.address, admin, network);
       await reserve.addOperator(operator, {from: admin});
       await reserve.addAlerter(alerter, {from: admin});
       await reserve.listToken(testToken.address, true, true, {from: operator});
@@ -667,18 +564,10 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       let srcAmount = new BN(10).pow(new BN(16)).mul(new BN(3));
       let rate = await reserve.getConversionRate(ethAddress, testToken.address, srcAmount, zeroBN);
       await expectRevert(
-        reserve.trade(
-          ethAddress,
-          srcAmount,
-          testToken.address,
-          destAddress,
-          rate.add(new BN(1)),
-          true,
-          {
-            value: srcAmount,
-            from: network
-          }
-        ),
+        reserve.trade(ethAddress, srcAmount, testToken.address, destAddress, rate.add(new BN(1)), true, {
+          value: srcAmount,
+          from: network
+        }),
         'expected conversionRate <= actualRate'
       );
     });
@@ -701,11 +590,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       await Helper.assertSameEtherBalance(network, srcBalanceBefore.sub(srcAmount));
       let dstBalanceAfter = await testToken.balanceOf(destAddress);
       // only approximate due to rounding down
-      Helper.assertApproximate(
-        dstBalanceAfter.sub(dstBalanceBefore),
-        destQty,
-        'unexpected destQty'
-      );
+      Helper.assertApproximate(dstBalanceAfter.sub(dstBalanceBefore), destQty, 'unexpected destQty');
     });
 
     it('test t2e', async () => {
@@ -733,24 +618,14 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       let reserve;
       before('set up malicious rounter', async () => {
         mockRounter = await MockUniswapRounter.new(uniswapFactory.address, weth.address);
-        reserve = await KyberUniswapV2Reserve.new(
-          mockRounter.address,
-          weth.address,
-          admin,
-          network
-        );
+        reserve = await KyberUniswapV2Reserve.new(mockRounter.address, weth.address, admin, network);
         await reserve.addOperator(operator, {from: admin});
         await reserve.listToken(testToken.address, true, true, {from: operator});
       });
 
       it('test e2t revert if swap amount out < expectedDestAmount', async () => {
         let srcAmount = new BN(10).pow(new BN(16)).mul(new BN(3));
-        let rate = await reserve.getConversionRate(
-          ethAddress,
-          testToken.address,
-          srcAmount,
-          zeroBN
-        );
+        let rate = await reserve.getConversionRate(ethAddress, testToken.address, srcAmount, zeroBN);
 
         dstQty = Helper.calcDstQty(srcAmount, ethDecimals, await testToken.decimals(), rate);
         await mockRounter.setDstQty(dstQty.sub(new BN(1)));
@@ -766,12 +641,7 @@ contract('KyberUniswapv2Reserve', function (accounts) {
 
       it('test t2e revert if swap amount out < expectedDestAmount', async () => {
         let srcAmount = new BN(10).pow(new BN(16)).mul(new BN(3));
-        let rate = await reserve.getConversionRate(
-          testToken.address,
-          ethAddress,
-          srcAmount,
-          zeroBN
-        );
+        let rate = await reserve.getConversionRate(testToken.address, ethAddress, srcAmount, zeroBN);
 
         dstQty = Helper.calcDstQty(srcAmount, await testToken.decimals(), ethDecimals, rate);
         await mockRounter.setDstQty(dstQty.sub(new BN(1)));
@@ -791,28 +661,17 @@ contract('KyberUniswapv2Reserve', function (accounts) {
       before('remove direct path, add undirect path only', async () => {
         await reserve.removePath(testToken.address, true, 0, {from: operator});
         await reserve.removePath(testToken.address, false, 0, {from: operator});
-        await reserve.addPath(
-          testToken.address,
-          [testToken.address, testToken2.address, weth.address],
-          false,
-          {from: operator}
-        );
-        await reserve.addPath(
-          testToken.address,
-          [weth.address, testToken2.address, testToken.address],
-          true,
-          {from: operator}
-        );
+        await reserve.addPath(testToken.address, [testToken.address, testToken2.address, weth.address], false, {
+          from: operator
+        });
+        await reserve.addPath(testToken.address, [weth.address, testToken2.address, testToken.address], true, {
+          from: operator
+        });
       });
 
       it('test e2t', async () => {
         let srcAmount = new BN(10).pow(new BN(16)).mul(new BN(3));
-        let rate = await reserve.getConversionRate(
-          ethAddress,
-          testToken.address,
-          srcAmount,
-          zeroBN
-        );
+        let rate = await reserve.getConversionRate(ethAddress, testToken.address, srcAmount, zeroBN);
         Helper.assertGreater(rate, zeroBN, 'rate 0');
 
         let srcBalanceBefore = await Helper.getBalancePromise(network);
@@ -828,21 +687,12 @@ contract('KyberUniswapv2Reserve', function (accounts) {
         await Helper.assertSameEtherBalance(network, srcBalanceBefore.sub(srcAmount));
         let dstBalanceAfter = await testToken.balanceOf(destAddress);
         // only approximate due to rounding down
-        Helper.assertApproximate(
-          dstBalanceAfter.sub(dstBalanceBefore),
-          destQty,
-          'unexpected destQty'
-        );
+        Helper.assertApproximate(dstBalanceAfter.sub(dstBalanceBefore), destQty, 'unexpected destQty');
       });
 
       it('test t2e', async () => {
         let srcAmount = new BN(10).pow(new BN(14)).mul(new BN(2));
-        let rate = await reserve.getConversionRate(
-          testToken.address,
-          ethAddress,
-          srcAmount,
-          zeroBN
-        );
+        let rate = await reserve.getConversionRate(testToken.address, ethAddress, srcAmount, zeroBN);
         Helper.assertGreater(rate, zeroBN, 'rate 0');
 
         await testToken.transfer(network, srcAmount);
