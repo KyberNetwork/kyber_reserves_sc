@@ -1,8 +1,9 @@
 pragma solidity 0.4.18;
 
-import "./ConversionRates.sol";
+import "./ConversionRatesBiDirection.sol";
 
-/// @title ConversionRateEnhancedSteps contract - new ConversionRates contract with step function enhancement
+/// @title ConversionRateEnhancedSteps contract
+/// New ConversionRates contract with step function enhancement
 /// Removed qty step function overhead
 /// Also fixed following issues:
 /// https://github.com/KyberNetwork/smart-contracts/issues/291
@@ -10,9 +11,7 @@ import "./ConversionRates.sol";
 /// https://github.com/KyberNetwork/smart-contracts/issues/240
 
 
-contract ConversionRateEnhancedSteps is ConversionRates {
-
-    uint  constant internal MAX_RATE = (PRECISION * 10 ** 7); // up to 10M tokens per ETH
+contract ConversionRateEnhancedStepsBiDirection is ConversionRatesBiDirection {
     uint constant internal MAX_STEPS_IN_FUNCTION = 16;
     int constant internal MAX_IMBALANCE = 2 ** 255 - 1;
     uint constant internal POW_2_128 = 2 ** 128;
@@ -20,7 +19,9 @@ contract ConversionRateEnhancedSteps is ConversionRates {
     int128 constant internal MIN_STEP_VALUE = -1 * 2 ** 127;
     int constant internal MAX_BPS_ADJUSTMENT = 100 * 100;
 
-    function ConversionRateEnhancedSteps(address _admin) public ConversionRates(_admin)
+    function ConversionRateEnhancedStepsBiDirection(address _admin)
+        public
+        ConversionRatesBiDirection(_admin)
         { } // solhint-disable-line no-empty-blocks
 
     // Blocking set qty step func as we won't use
@@ -110,25 +111,33 @@ contract ConversionRateEnhancedSteps is ConversionRates {
         int stepYValue;
 
         if (command == 9) {
-            (stepXValue, stepYValue) = decodeStepFunctionData(tokenData[token].buyRateImbalanceStepFunction.x[param]);
+            (stepXValue, stepYValue) = decodeStepFunctionData(
+                tokenData[token].buyRateImbalanceStepFunction.x[param]
+                );
             return stepXValue;
         }
 
         if (command == 10) return int(tokenData[token].buyRateImbalanceStepFunction.x.length);
         if (command == 11) {
-            (stepXValue, stepYValue) = decodeStepFunctionData(tokenData[token].buyRateImbalanceStepFunction.x[param]);
+            (stepXValue, stepYValue) = decodeStepFunctionData(
+                tokenData[token].buyRateImbalanceStepFunction.x[param]
+                );
             return stepYValue;
         }
 
         if (command == 12) return int(tokenData[token].sellRateImbalanceStepFunction.x.length - 1);
         if (command == 13) {
-            (stepXValue, stepYValue) = decodeStepFunctionData(tokenData[token].sellRateImbalanceStepFunction.x[param]);
+            (stepXValue, stepYValue) = decodeStepFunctionData(
+                tokenData[token].sellRateImbalanceStepFunction.x[param]
+                );
             return stepXValue;
         }
 
         if (command == 14) return int(tokenData[token].sellRateImbalanceStepFunction.x.length);
         if (command == 15) {
-            (stepXValue, stepYValue) = decodeStepFunctionData(tokenData[token].sellRateImbalanceStepFunction.x[param]);
+            (stepXValue, stepYValue) = decodeStepFunctionData(
+                tokenData[token].sellRateImbalanceStepFunction.x[param]
+                );
             return stepYValue;
         }
 
@@ -136,20 +145,32 @@ contract ConversionRateEnhancedSteps is ConversionRates {
     }
 
     /* solhint-disable function-max-lines */
-    function getRate(ERC20 token, uint currentBlockNumber, bool buy, uint qty) public view returns(uint) {
+    function fetchRate(
+        ERC20 token,
+        uint currentBlockNumber,
+        bool buy,
+        uint qty,
+        bool isSrcQty
+    ) public view returns(uint) {
         // check if trade is enabled
         if (!tokenData[token].enabled) return 0;
-        if (tokenControlInfo[token].minimalRecordResolution == 0) return 0; // token control info not set
+        // token control info not set
+        if (tokenControlInfo[token].minimalRecordResolution == 0) return 0;
 
         // get rate update block
         bytes32 compactData = tokenRatesCompactData[tokenData[token].compactDataArrayIndex];
 
         uint updateRateBlock = getLast4Bytes(compactData);
-        if (currentBlockNumber >= updateRateBlock + validRateDurationInBlocks) return 0; // rate is expired
+        // expired rate
+        if (currentBlockNumber >= updateRateBlock + validRateDurationInBlocks) return 0;
         // check imbalance
         int totalImbalance;
         int blockImbalance;
-        (totalImbalance, blockImbalance) = getImbalance(token, updateRateBlock, currentBlockNumber);
+        (totalImbalance, blockImbalance) = getImbalance(
+            token,
+            updateRateBlock,
+            currentBlockNumber
+        );
 
         // calculate actual rate
         int imbalanceQty;
@@ -165,8 +186,7 @@ contract ConversionRateEnhancedSteps is ConversionRates {
             rate = addBps(rate, extraBps);
 
             // compute token qty
-            qty = calcDstQty(qty, ETH_DECIMALS, getDecimals(token), rate);
-            imbalanceQty = int(qty);
+            imbalanceQty = int(isSrcQty ? calcQtyFromRate(token, qty, rate, true) : qty);
 
             // add imbalance overhead
             extraBps = executeStepFunction(
@@ -185,7 +205,7 @@ contract ConversionRateEnhancedSteps is ConversionRates {
             rate = addBps(rate, extraBps);
 
             // compute token qty
-            imbalanceQty = -1 * int(qty);
+            imbalanceQty = -1 * int(isSrcQty ? qty: calcQtyFromRate(token, qty, rate, false));
 
             // add imbalance overhead
             extraBps = executeStepFunction(
@@ -201,6 +221,15 @@ contract ConversionRateEnhancedSteps is ConversionRates {
         if (abs(blockImbalance + imbalanceQty) >= getMaxPerBlockImbalance(token)) return 0;
 
         return rate;
+    }
+
+    function getImbalancePerToken(ERC20 token, uint whichBlock)
+        public view
+        returns(int totalImbalance, int currentBlockImbalance)
+    {
+        // if whichBlock = 0, use latest block, otherwise use whichBlock
+        uint usedBlock = whichBlock == 0 ? block.number : whichBlock;
+        return getImbalance(token, getRateUpdateBlock(token), usedBlock);
     }
 
     // Override function getImbalance to fix #240
@@ -229,15 +258,6 @@ contract ConversionRateEnhancedSteps is ConversionRates {
         }
     }
 
-    function getImbalancePerToken(ERC20 token, uint whichBlock)
-        public view
-        returns(int totalImbalance, int currentBlockImbalance)
-    {
-        // if whichBlock = 0, use latest block, otherwise use whichBlock
-        uint usedBlock = whichBlock == 0 ? block.number : whichBlock;
-        return getImbalance(token, getRateUpdateBlock(token), usedBlock);
-    }
-
     function addBps(uint rate, int bps) internal pure returns(uint) {
         require(rate <= MAX_RATE);
         require(bps >= MIN_BPS_ADJUSTMENT);
@@ -247,7 +267,11 @@ contract ConversionRateEnhancedSteps is ConversionRates {
         return (rate * uint(int(maxBps) + bps)) / maxBps;
     }
 
-    function executeStepFunction(StepFunction storage f, int from, int to) internal view returns(int) {
+    function executeStepFunction(
+        StepFunction storage f,
+        int from,
+        int to
+    ) internal view returns(int) {
 
         uint len = f.x.length;
 

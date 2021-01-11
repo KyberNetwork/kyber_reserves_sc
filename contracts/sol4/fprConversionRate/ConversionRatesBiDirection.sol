@@ -3,11 +3,11 @@ pragma solidity 0.4.18;
 
 import "../ERC20Interface.sol";
 import "../Utils.sol";
-import "../ConversionRatesInterface.sol";
+import "../ICRBiDirection.sol";
 import "../VolumeImbalanceRecorder.sol";
 
 
-contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, Utils {
+contract ConversionRatesBiDirection is ICRBiDirection, VolumeImbalanceRecorder, Utils {
 
     // bps - basic rate steps. one step is 1 / 10000 of the rate.
     struct StepFunction {
@@ -27,15 +27,16 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
         // generally speaking. Sell rate is 1 / buy rate i.e. the buy in the other direction.
         uint baseBuyRate;  // in PRECISION units. see KyberConstants
         uint baseSellRate; // PRECISION units. without (sell / buy) spread it is 1 / baseBuyRate
-        StepFunction buyRateQtyStepFunction; // in bps. higher quantity - bigger the rate.
-        StepFunction sellRateQtyStepFunction;// in bps. higher the qua
-        StepFunction buyRateImbalanceStepFunction; // in BPS. higher reserve imbalance - bigger the rate.
-        StepFunction sellRateImbalanceStepFunction;
+        StepFunction buyRateQtyStepFunction; // in bps. higher quantity - worse rate.
+        StepFunction sellRateQtyStepFunction;// in bps. higher quantity - worse rate.
+        StepFunction buyRateImbalanceStepFunction; // in bps. higher imbalance - worse rate.
+        StepFunction sellRateImbalanceStepFunction; // in bps. higher imbalance - worse rate.
     }
 
     /*
     this is the data for tokenRatesCompactData
-    but solidity compiler optimizer is sub-optimal, and cannot write this structure in a single storage write
+    solidity compiler optimizer is sub-optimal,
+    and cannot write this structure in a single storage write
     so we represent it as bytes32 and do the byte tricks ourselves.
     struct TokenRatesCompactData {
         bytes14 buy;  // change buy rate of token from baseBuyRate in 10 bps
@@ -55,7 +56,9 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
     int  constant internal MAX_BPS_ADJUSTMENT = 10 ** 11; // 1B %
     int  constant internal MIN_BPS_ADJUSTMENT = -100 * 100; // cannot go down by more than 100%
 
-    function ConversionRates(address _admin) public VolumeImbalanceRecorder(_admin)
+    uint  constant internal MAX_RATE = (PRECISION * 10 ** 7); // up to 10M tokens per ETH
+
+    function ConversionRatesBiDirection(address _admin) public VolumeImbalanceRecorder(_admin)
         { } // solhint-disable-line no-empty-blocks
 
     function addToken(ERC20 token) public onlyAdmin {
@@ -71,14 +74,21 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
         tokenData[token].compactDataArrayIndex = tokenRatesCompactData.length - 1;
         tokenData[token].compactDataFieldIndex = numTokensInCurrentCompactData;
 
-        numTokensInCurrentCompactData = (numTokensInCurrentCompactData + 1) % NUM_TOKENS_IN_COMPACT_DATA;
+        numTokensInCurrentCompactData = 
+            (numTokensInCurrentCompactData + 1) %
+            NUM_TOKENS_IN_COMPACT_DATA;
 
         setGarbageToVolumeRecorder(token);
 
         setDecimals(token);
     }
 
-    function setCompactData(bytes14[] buy, bytes14[] sell, uint blockNumber, uint[] indices) public onlyOperator {
+    function setCompactData(
+        bytes14[] buy,
+        bytes14[] sell,
+        uint blockNumber,
+        uint[] indices
+    ) public onlyOperator {
 
         require(buy.length == sell.length);
         require(indices.length == buy.length);
@@ -88,7 +98,10 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
 
         for (uint i = 0; i < indices.length; i++) {
             require(indices[i] < tokenRatesCompactData.length);
-            uint data = uint(buy[i]) | uint(sell[i]) * bytes14Offset | (blockNumber * (bytes14Offset * bytes14Offset));
+            uint data = 
+                uint(buy[i]) |
+                uint(sell[i]) * bytes14Offset |
+                (blockNumber * (bytes14Offset * bytes14Offset));
             tokenRatesCompactData[indices[i]] = bytes32(data);
         }
     }
@@ -192,20 +205,51 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
     }
 
     /* solhint-disable function-max-lines */
-    function getRate(ERC20 token, uint currentBlockNumber, bool buy, uint qty) public view returns(uint) {
+    // Example for backwards compatibility
+    // function getRate(
+    //     ERC20 token,
+    //     uint currentBlockNumber,
+    //     bool buy,
+    //     uint qty
+    // ) public view returns(uint) {
+    //     return fetchRate(token, currentBlockNumber, buy, qty, true);
+    // }
+
+    // function getRateWithDestAmt(
+    //     ERC20 token,
+    //     uint currentBlockNumber,
+    //     bool buy,
+    //     uint qty
+    // ) public view returns(uint) {
+    //     return fetchRate(token, currentBlockNumber, buy, qty, false);
+    // }
+
+    function fetchRate(
+        ERC20 token,
+        uint currentBlockNumber,
+        bool buy,
+        uint qty,
+        bool isSrcQty
+    ) public view returns (uint) {
         // check if trade is enabled
         if (!tokenData[token].enabled) return 0;
-        if (tokenControlInfo[token].minimalRecordResolution == 0) return 0; // token control info not set
+        // token control info not set
+        if (tokenControlInfo[token].minimalRecordResolution == 0) return 0;
 
         // get rate update block
         bytes32 compactData = tokenRatesCompactData[tokenData[token].compactDataArrayIndex];
 
         uint updateRateBlock = getLast4Bytes(compactData);
-        if (currentBlockNumber >= updateRateBlock + validRateDurationInBlocks) return 0; // rate is expired
+        // expired rate
+        if (currentBlockNumber >= updateRateBlock + validRateDurationInBlocks) return 0;
         // check imbalance
         int totalImbalance;
         int blockImbalance;
-        (totalImbalance, blockImbalance) = getImbalance(token, updateRateBlock, currentBlockNumber);
+        (totalImbalance, blockImbalance) = getImbalance(
+            token,
+            updateRateBlock,
+            currentBlockNumber
+        );
 
         // calculate actual rate
         int imbalanceQty;
@@ -221,7 +265,7 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
             rate = addBps(rate, extraBps);
 
             // compute token qty
-            imbalanceQty = int(calcDstQty(qty, ETH_DECIMALS, getDecimals(token), rate));
+            imbalanceQty = int(isSrcQty ? calcQtyFromRate(token, qty, rate, true) : qty);
             totalImbalance += imbalanceQty;
 
             // add qty overhead
@@ -229,7 +273,10 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
             rate = addBps(rate, extraBps);
 
             // add imbalance overhead
-            extraBps = executeStepFunction(tokenData[token].buyRateImbalanceStepFunction, totalImbalance);
+            extraBps = executeStepFunction(
+                tokenData[token].buyRateImbalanceStepFunction,
+                totalImbalance
+                );
             rate = addBps(rate, extraBps);
         } else {
             // start with base rate
@@ -240,7 +287,7 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
             rate = addBps(rate, extraBps);
 
             // compute token qty
-            imbalanceQty = int(qty);
+            imbalanceQty = int(isSrcQty ? qty: calcQtyFromRate(token, qty, rate, false));
             totalImbalance -= imbalanceQty;
 
             // add qty overhead
@@ -248,7 +295,10 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
             rate = addBps(rate, extraBps);
 
             // add imbalance overhead
-            extraBps = executeStepFunction(tokenData[token].sellRateImbalanceStepFunction, totalImbalance);
+            extraBps = executeStepFunction(
+                tokenData[token].sellRateImbalanceStepFunction,
+                totalImbalance
+                );
             rate = addBps(rate, extraBps);
         }
 
@@ -324,7 +374,11 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
         return uint(b) / (BYTES_14_OFFSET * BYTES_14_OFFSET);
     }
 
-    function getRateByteFromCompactData(bytes32 data, ERC20 token, bool buy) internal view returns(int8) {
+    function getRateByteFromCompactData(
+        bytes32 data,
+        ERC20 token,
+        bool buy
+    ) internal view returns(int8) {
         uint fieldOffset = tokenData[token].compactDataFieldIndex;
         uint byteOffset;
         if (buy)
@@ -335,7 +389,18 @@ contract ConversionRates is ConversionRatesInterface, VolumeImbalanceRecorder, U
         return int8(data[byteOffset]);
     }
 
-    function executeStepFunction(StepFunction f, int x) internal pure returns(int) {
+    function calcQtyFromRate(
+        ERC20 token,
+        uint qty,
+        uint rate,
+        bool calcDst
+    ) internal view returns (uint) {
+        return calcDst ?
+            calcDstQty(qty, ETH_DECIMALS, getDecimals(token), rate) :
+            calcSrcQty(qty, getDecimals(token), ETH_DECIMALS, rate);
+    }
+
+    function executeStepFunction(StepFunction storage f, int x) internal view returns(int) {
         uint len = f.y.length;
         for (uint ind = 0; ind < len; ind++) {
             if (x <= f.x[ind]) return f.y[ind];
