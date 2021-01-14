@@ -53,7 +53,7 @@ task("setLiquidityParams", "(re-)sets the liquidity settings of an APR")
     let warnings = validateParams();
     if ((await userAccount.getAddress() == pricingAdmin) && warnings.length == 0) {
       console.log("Setting price...");
-      await pricing.setLiquidittyParams(
+      await pricing.setLiquidityParams(
         liqParams['rInFp'],
         liqParams['pMinInFp'],
         liqParams['numFpBits'],
