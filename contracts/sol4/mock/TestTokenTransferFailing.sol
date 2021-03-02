@@ -68,9 +68,9 @@ library SafeMath {
  */
 contract ERC20Basic {
     uint public totalSupply;
+    event Transfer(address indexed from, address indexed to, uint value);
     function transfer(address to, uint value) public returns (bool);
     function balanceOf(address who) public view returns (uint);
-    event Transfer(address indexed from, address indexed to, uint value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,10 +80,10 @@ contract ERC20Basic {
  * see https://github.com/ethereum/EIPs/issues/20
  */
 contract ERC20 is ERC20Basic {
+    event Approval(address indexed owner, address indexed spender, uint value);
     function transferFrom(address from, address to, uint value) public returns (bool);
     function approve(address spender, uint value) public returns (bool);
     function allowance(address owner, address spender) public view returns (uint);
-    event Approval(address indexed owner, address indexed spender, uint value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +175,9 @@ contract TestTokenTransferFailing is StandardToken {
     uint public decimals = 18;
     uint public constant INITIAL_SUPPLY = 10**(50+18);
 
+    event Burn(address indexed _burner, uint _value);
+
+
     function TestTokenTransferFailing(string _name, string _symbol, uint _decimals) public {
         totalSupply = INITIAL_SUPPLY;
         balances[msg.sender] = INITIAL_SUPPLY;
@@ -182,8 +185,6 @@ contract TestTokenTransferFailing is StandardToken {
         symbol = _symbol;
         decimals = _decimals;
     }
-
-    event Burn(address indexed _burner, uint _value);
 
     function burn(uint _value) public returns (bool) {
         balances[msg.sender] = balances[msg.sender].sub(_value);
