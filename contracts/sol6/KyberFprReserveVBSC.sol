@@ -318,15 +318,16 @@ contract KyberFprReserveVBSC is
         uint256 srcAmount,
         IERC20Ext destToken,
         address payable destAddress,
-        uint256 conversionRate
+        uint256 minRate
     ) internal {
-        require(conversionRate > 0, "rate is 0");
+        require(minRate > 0, "rate is 0");
 
         if (srcToken == ETH_TOKEN_ADDRESS) {
             require(msg.value == srcAmount, "wrong msg value");
         } else {
             require(msg.value == 0, "bad msg value");
         }
+        require((srcToken == quoteToken) || (destToken == quoteToken), "one token must be quote");
 
         bool isBuy = srcToken == quoteToken;
 
@@ -339,7 +340,7 @@ contract KyberFprReserveVBSC is
             );
         // re-validate conversion rate
         require(
-            rate >= conversionRate,
+            rate >= minRate,
             "reserve rate lower than requested rate"
         );
         if (sanityRatesContract != IKyberSanity(0)) {
@@ -353,7 +354,7 @@ contract KyberFprReserveVBSC is
         }
 
         uint256 destAmount =
-            calcDestAmount(srcToken, destToken, srcAmount, conversionRate);
+            calcDestAmount(srcToken, destToken, srcAmount, rate);
         require(destAmount > 0, "dest amount is 0");
         
         _recieveToken(srcToken, msg.sender, srcAmount);
