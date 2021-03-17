@@ -35,7 +35,14 @@ contract KyberFprReserveVBSC is
     IConversionRates public conversionRatesContract;
     IKyberSanity public sanityRatesContract;
     IWeth public weth;
-    IERC20Ext public quoteToken;
+    IERC20Ext public immutable quoteToken;
+    
+    mapping(address=>bool) public whiteListAddr;
+
+    modifier onlyWhitelist() {
+        require(whiteListAddr[msg.sender], "not whitelist"); 
+        _;
+    }
     
 
     event DepositToken(IERC20Ext indexed token, uint256 amount);
@@ -65,6 +72,9 @@ contract KyberFprReserveVBSC is
     event SetWethAddress(IWeth indexed weth);
     event SetSanityRateAddress(IKyberSanity indexed sanity);
 
+    event WhiteListed(address user);
+    event BlackListed(address user);
+
     constructor(
         IConversionRates _ratesContract,
         IWeth _weth,
@@ -87,6 +97,18 @@ contract KyberFprReserveVBSC is
         emit DepositToken(ETH_TOKEN_ADDRESS, msg.value);
     }
 
+    function whiteList(address user) external onlyAdmin {
+        require(!whiteListAddr[user], "address is already whitelist");
+        whiteListAddr[user] = true;
+        emit WhiteListed(user);
+    }
+    
+    function blackList(address user) external onlyAdmin {
+        require(whiteListAddr[user], "address is not on whitelist");
+        whiteListAddr[user] = false;
+        emit BlackListed(user);
+    }
+
     function trade(
         IERC20Ext srcToken,
         uint256 srcAmount,
@@ -94,7 +116,7 @@ contract KyberFprReserveVBSC is
         address payable destAddress,
         uint256 conversionRate,
         bool /* validate */
-    ) public payable override nonReentrant  returns (bool) {
+    ) public payable override onlyWhitelist nonReentrant returns (bool) {
         ConfigData memory data = configData;
         require(data.tradeEnabled, "trade not enable");
         require(
