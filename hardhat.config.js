@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-truffle5");
 require("@nomiclabs/hardhat-web3");
+require("@nomiclabs/hardhat-etherscan");
 
 require('dotenv').config();
 require('./deployment/fpr/fprDeploy');
@@ -212,5 +213,22 @@ if (INFURA_API_KEY != undefined && PRIVATE_KEY != undefined) {
     url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
     accounts: [PRIVATE_KEY],
     timeout: 20000
+  };
+
+  module.exports.networks.bsc = {
+    url: `https://bsc-dataseed.binance.org/`,
+    accounts: [PRIVATE_KEY],
+    timeout: 20000
+  };
+
+  module.exports.networks.bsc_testnet = {
+    url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
+    accounts: [PRIVATE_KEY],
+    apiKey: INFURA_API_KEY,
+    timeout: 20000
+  };  
+  
+  module.exports.etherscan = {
+    apiKey: INFURA_API_KEY
   };
 }
