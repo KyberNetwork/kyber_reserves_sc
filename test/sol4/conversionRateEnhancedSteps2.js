@@ -1,5 +1,6 @@
-let MockEnhancedStepFunctions = artifacts.require('MockConversionRateEnhancedSteps2.sol');
-let TestToken = artifacts.require('./mockContracts/TestToken.sol');
+const MockEnhancedStepFunctions = artifacts.require('MockConversionRateEnhancedSteps2.sol');
+const TestToken = artifacts.require('./mockContracts/TestToken.sol');
+const Wrapper = artifacts.require("Wrapper.sol");
 
 const expectEvent = require('@openzeppelin/test-helpers/src/expectEvent');
 const {web3} = require('@openzeppelin/test-helpers/src/setup');
@@ -1502,6 +1503,7 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
   });
 
   describe('delist token', async () => {
+    let wrapper;
     beforeEach('add tokens', async () => {
       //init contracts
       convRatesInst = await MockEnhancedStepFunctions.new(admin);
@@ -1517,6 +1519,8 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
           maxTotalImbalance
         );
       }
+
+      wrapper = await Wrapper.new();
     });
 
     it('delists token - check emptySlotIndex', async () => {
@@ -1526,6 +1530,10 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
       let tx = await convRatesInst.removeToken(tokens[REMOVING_INDEX], {from: admin});
       expectEvent(tx, 'RemoveToken', {token: tokens[REMOVING_INDEX], emptyIndexSlot: new BN(REMOVING_INDEX)});
 
+      let listedTokens = await convRatesInst.getListedTokens();
+      expect(listedTokens.length).to.equal(numTokens - 1);
+      expect(listedTokens[REMOVING_INDEX]).to.equal(tokens[numTokens - 1]);
+
       tx = await convRatesInst.removeToken(tokens[REMOVING_INDEX2], {from: admin});
       expectEvent(tx, 'RemoveToken', {token: tokens[REMOVING_INDEX2], emptyIndexSlot: new BN(REMOVING_INDEX2)});
 
@@ -1534,12 +1542,9 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
         new BN(REMOVING_INDEX2)
       ]);
 
-      let listedTokens = await convRatesInst.getListedTokens();
-      expect(listedTokens.length).to.equal(17);
-      expect(listedTokens[REMOVING_INDEX]).to.equal(Helper.zeroAddress);
-
       let basicData = await convRatesInst.getTokenBasicData(tokens[REMOVING_INDEX]);
       expect(basicData[0]).to.equal(false);
+      expect(basicData[1]).to.equal(false);
     });
 
     it('delists token then adds another token to the contract', async () => {
@@ -1552,8 +1557,9 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
       Helper.assertEqualArray(await convRatesInst.getEmptySlotIndicies(), []);
 
       let listedTokens = await convRatesInst.getListedTokens();
-      expect(listedTokens.length).to.equal(17);
-      expect(listedTokens[REMOVING_INDEX]).to.equal(newToken.address);
+      expect(listedTokens.length).to.equal(numTokens);
+      expect(listedTokens[REMOVING_INDEX]).to.equal(tokens[numTokens -1]);
+      expect(listedTokens[numTokens -1]).to.equal(newToken.address);
 
       /// add token when there is no emptySlotIndicies
       const newToken2 = await TestToken.new('test', 'tst', 18);
@@ -1565,6 +1571,15 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
       expectEvent(tx, 'AddToken', {token: tokens[REMOVING_INDEX], compactDataArrayIndex: new BN(1), compactDataFieldIndex: new BN(4)});
       let basicData = await convRatesInst.getTokenBasicData(tokens[REMOVING_INDEX]);
       expect(basicData[0]).to.equal(true);
+
+      listedTokens = await convRatesInst.getListedTokens();
+      expect(listedTokens.length).to.equal(numTokens + 2);
+      expect(listedTokens[numTokens]).to.equal(newToken2.address);
+      expect(listedTokens[numTokens + 1]).to.equal(tokens[REMOVING_INDEX]);
+
+      let indices = await wrapper.getTokenIndicies(convRatesInst.address, [tokens[REMOVING_INDEX], newToken.address, newToken2.address]);
+      Helper.assertEqualArray(indices[0], [new BN(1), new BN(1), new BN(1)])
+      Helper.assertEqualArray(indices[1], [new BN(4), new BN(0), new BN(3)])
     });
   });
 });

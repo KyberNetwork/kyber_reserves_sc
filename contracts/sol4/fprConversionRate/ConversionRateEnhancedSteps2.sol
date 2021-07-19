@@ -34,8 +34,6 @@ contract ConversionRateEnhancedSteps2 is ConversionRateEnhancedSteps {
 
             compactDataArrayIndex = slotIndex / NUM_TOKENS_IN_COMPACT_DATA;
             compactDataFieldIndex = slotIndex % NUM_TOKENS_IN_COMPACT_DATA;
-
-            listedTokens[slotIndex] = token;
         } else {
             if (numTokensInCurrentCompactData == 0) {
                 tokenRatesCompactData.length++; // add new structure
@@ -44,12 +42,11 @@ contract ConversionRateEnhancedSteps2 is ConversionRateEnhancedSteps {
             compactDataFieldIndex = numTokensInCurrentCompactData;
             // prettier-ignore
             numTokensInCurrentCompactData = (numTokensInCurrentCompactData + 1) % NUM_TOKENS_IN_COMPACT_DATA;
-
-            listedTokens.push(token);
         }
-
         tokenData[token].compactDataArrayIndex = compactDataArrayIndex;
         tokenData[token].compactDataFieldIndex = compactDataFieldIndex;
+
+        listedTokens.push(token);
 
         setGarbageToVolumeRecorder(token);
         setDecimals(token);
@@ -66,7 +63,17 @@ contract ConversionRateEnhancedSteps2 is ConversionRateEnhancedSteps {
         emptySlotIndicies.push(slotIndex);
         // disable token and remove it from listedTokens
         data.listed = false;
-        listedTokens[slotIndex] = ERC20(0);
+        data.enabled = false;
+
+        uint256 removeIndex = uint256(-1);
+        for (uint256 i = 0; i < listedTokens.length; i++) {
+            if (listedTokens[i] == token) {
+                removeIndex = i;
+            }
+        }
+        require(removeIndex != uint256(-1));
+        listedTokens[removeIndex] = listedTokens[listedTokens.length - 1];
+        listedTokens.length--;
 
         RemoveToken(token, slotIndex);
     }
