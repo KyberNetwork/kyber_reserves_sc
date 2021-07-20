@@ -69,6 +69,7 @@ contract ConversionRateEnhancedSteps2 is ConversionRateEnhancedSteps {
         for (uint256 i = 0; i < listedTokens.length; i++) {
             if (listedTokens[i] == token) {
                 removeIndex = i;
+                break;
             }
         }
         require(removeIndex != uint256(-1));
