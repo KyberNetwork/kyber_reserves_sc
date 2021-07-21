@@ -1,8 +1,9 @@
 const MockEnhancedStepFunctions = artifacts.require('MockConversionRateEnhancedSteps2.sol');
 const TestToken = artifacts.require('./mockContracts/TestToken.sol');
-const Wrapper = artifacts.require("Wrapper.sol");
+const Wrapper = artifacts.require('Wrapper.sol');
+const WrapConversionRateEnhancedSteps2 = artifacts.require('WrapConversionRateEnhancedSteps2.sol');
 
-const expectEvent = require('@openzeppelin/test-helpers/src/expectEvent');
+const {expectEvent, expectRevert} = require('@openzeppelin/test-helpers');
 const {web3} = require('@openzeppelin/test-helpers/src/setup');
 const {expect} = require('chai');
 let Helper = require('../helper.js');
@@ -1553,22 +1554,34 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
 
       const newToken = await TestToken.new('test', 'tst', 18);
       tx = await convRatesInst.addToken(newToken.address, {from: admin});
-      expectEvent(tx, 'AddToken', {token: newToken.address, compactDataArrayIndex: new BN(1), compactDataFieldIndex: new BN(0)});
+      expectEvent(tx, 'AddToken', {
+        token: newToken.address,
+        compactDataArrayIndex: new BN(1),
+        compactDataFieldIndex: new BN(0)
+      });
       Helper.assertEqualArray(await convRatesInst.getEmptySlotIndicies(), []);
 
       let listedTokens = await convRatesInst.getListedTokens();
       expect(listedTokens.length).to.equal(numTokens);
-      expect(listedTokens[REMOVING_INDEX]).to.equal(tokens[numTokens -1]);
-      expect(listedTokens[numTokens -1]).to.equal(newToken.address);
+      expect(listedTokens[REMOVING_INDEX]).to.equal(tokens[numTokens - 1]);
+      expect(listedTokens[numTokens - 1]).to.equal(newToken.address);
 
       /// add token when there is no emptySlotIndicies
       const newToken2 = await TestToken.new('test', 'tst', 18);
       tx = await convRatesInst.addToken(newToken2.address, {from: admin});
-      expectEvent(tx, 'AddToken', {token: newToken2.address, compactDataArrayIndex: new BN(1), compactDataFieldIndex: new BN(3)});
+      expectEvent(tx, 'AddToken', {
+        token: newToken2.address,
+        compactDataArrayIndex: new BN(1),
+        compactDataFieldIndex: new BN(3)
+      });
 
       /// add removed token again with new index
       tx = await convRatesInst.addToken(tokens[REMOVING_INDEX], {from: admin});
-      expectEvent(tx, 'AddToken', {token: tokens[REMOVING_INDEX], compactDataArrayIndex: new BN(1), compactDataFieldIndex: new BN(4)});
+      expectEvent(tx, 'AddToken', {
+        token: tokens[REMOVING_INDEX],
+        compactDataArrayIndex: new BN(1),
+        compactDataFieldIndex: new BN(4)
+      });
       let basicData = await convRatesInst.getTokenBasicData(tokens[REMOVING_INDEX]);
       expect(basicData[0]).to.equal(true);
 
@@ -1577,9 +1590,24 @@ contract('ConversionRateEnhancedSteps', function (accounts) {
       expect(listedTokens[numTokens]).to.equal(newToken2.address);
       expect(listedTokens[numTokens + 1]).to.equal(tokens[REMOVING_INDEX]);
 
-      let indices = await wrapper.getTokenIndicies(convRatesInst.address, [tokens[REMOVING_INDEX], newToken.address, newToken2.address]);
-      Helper.assertEqualArray(indices[0], [new BN(1), new BN(1), new BN(1)])
-      Helper.assertEqualArray(indices[1], [new BN(4), new BN(0), new BN(3)])
+      let indices = await wrapper.getTokenIndicies(convRatesInst.address, [
+        tokens[REMOVING_INDEX],
+        newToken.address,
+        newToken2.address
+      ]);
+      Helper.assertEqualArray(indices[0], [new BN(1), new BN(1), new BN(1)]);
+      Helper.assertEqualArray(indices[1], [new BN(4), new BN(0), new BN(3)]);
+    });
+
+    it('should remove token by using wrapper', async () => {
+      const REMOVING_INDEX = 3;
+      const writeWrapper = await WrapConversionRateEnhancedSteps2.new(convRatesInst.address, {from: admin});
+
+      await convRatesInst.transferAdminQuickly(writeWrapper.address, {from: admin});
+
+      expectRevert.unspecified(convRatesInst.removeToken(tokens[REMOVING_INDEX], {from: admin}));
+
+      await writeWrapper.removeToken(tokens[REMOVING_INDEX], {from: admin});
     });
   });
 });

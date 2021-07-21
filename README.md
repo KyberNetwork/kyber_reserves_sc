@@ -24,6 +24,11 @@ PRIVATE_KEY=0x****************************************************************
 INFURA_API_KEY=********************************
 ```
 
+### Deploy conversionRateEnhancedSteps2.sol
+```shell
+
+```
+
 ## Testing with Hardhat
 1. If contracts have not been compiled, run `yarn compile`. This step can be skipped subsequently.
 2. Run `yarn test`
